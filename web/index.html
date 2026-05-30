@@ -2,88 +2,175 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>the404squad — Gestionnaire de compte</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#FF6200">
+    <title>ING — Mes comptes</title>
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
 </head>
 <body>
-    <header class="topbar">
-        <div class="brand">
-            <span class="logo">404</span>
-            <div>
-                <h1>Gestionnaire de compte</h1>
-                <p class="tagline">the404squad — suivi des dépenses, épargne & investissements</p>
-            </div>
+<div class="phone">
+
+    <!-- ============================ ÉCRAN ACCUEIL ============================ -->
+    <section class="screen screen--home is-active" id="screen-home">
+        <div class="home-bg">
+            <span class="blob blob-1"></span>
+            <span class="blob blob-2"></span>
+            <span class="blob blob-3"></span>
         </div>
-        <div class="profile" id="profile">
-            <div class="profile-name" id="profileName">—</div>
-            <div class="profile-sub" id="profileSub">—</div>
-        </div>
-    </header>
 
-    <nav class="controls">
-        <label>Période
-            <select id="monthSelect"></select>
-        </label>
-        <div class="view-toggle">
-            <button class="active" id="btnMonth" data-view="month">Vue mensuelle</button>
-            <button id="btnYear" data-view="year">Vue annuelle</button>
-        </div>
-    </nav>
-
-    <main>
-        <!-- Cartes de synthèse -->
-        <section class="cards" id="cards"></section>
-
-        <!-- Budgets & alertes -->
-        <section class="card budget-card">
-            <h2>Budgets &amp; alertes <span class="muted" id="budgetScope"></span></h2>
-            <div id="alerts"></div>
-            <div id="budgets"></div>
-        </section>
-
-        <!-- Graphiques -->
-        <section class="charts">
-            <div class="card chart-card">
-                <h2>Répartition des dépenses <span class="muted" id="pieScope"></span></h2>
-                <canvas id="pieChart"></canvas>
+        <header class="home-top">
+            <div class="ing-logo ing-logo--anim">
+                <span class="ing-lion">ING</span>
             </div>
-            <div class="card chart-card wide">
-                <h2>Revenus vs dépenses <span class="muted" id="barScope"></span></h2>
-                <canvas id="barChart"></canvas>
+            <div class="lang-toggle" id="langToggle">
+                <button data-lang="fr" class="is-active">FR</button>
+                <button data-lang="en">EN</button>
             </div>
-            <div class="card chart-card proj-card">
-                <div class="chart-head">
-                    <h2>Projection de ton patrimoine</h2>
-                    <div class="view-toggle" id="projToggle">
-                        <button data-years="1">1 an</button>
-                        <button class="active" data-years="10">10 ans</button>
+        </header>
+
+        <div class="home-body">
+            <div class="home-hero">
+                <div class="hero-badge" data-i18n="home.badge">Banque mobile</div>
+                <h1 class="hero-title" id="heroTitle"></h1>
+                <p class="hero-slogan" id="heroSlogan"><span class="cursor"></span></p>
+            </div>
+
+            <ul class="home-features" id="homeFeatures"></ul>
+        </div>
+
+        <div class="home-cta">
+            <button class="btn btn--primary" id="btnStart">
+                <span data-i18n="home.cta">Découvrir mes comptes</span>
+                <span class="btn-arrow">→</span>
+            </button>
+            <p class="home-legal" data-i18n="home.legal">Données de démonstration · the404squad</p>
+        </div>
+    </section>
+
+    <!-- ============================ ÉCRAN COMPTES ============================ -->
+    <section class="screen screen--accounts" id="screen-accounts">
+        <header class="topbar">
+            <div class="ing-logo ing-logo--sm"><span class="ing-lion">ING</span></div>
+            <div class="period">
+                <select id="monthSelect" aria-label="Période"></select>
+            </div>
+            <button class="avatar" id="avatar" aria-label="Profil">—</button>
+        </header>
+
+        <div class="accounts-scroll">
+            <!-- Slot principal : compte courant -->
+            <div class="main-slot" id="mainSlot">
+                <div class="main-slot__top">
+                    <div>
+                        <div class="main-slot__label" data-i18n="acc.current">Compte courant</div>
+                        <div class="main-slot__holder" id="msHolder">—</div>
+                    </div>
+                    <div class="main-slot__chip">Visa</div>
+                </div>
+                <div class="main-slot__balance" id="msBalance">—</div>
+                <div class="main-slot__iban" id="msIban">—</div>
+                <div class="main-slot__flows">
+                    <div class="flow flow--in">
+                        <span class="flow-ic">↓</span>
+                        <div><span class="flow-lab" data-i18n="acc.income">Revenus</span><strong id="msIn">—</strong></div>
+                    </div>
+                    <div class="flow flow--out">
+                        <span class="flow-ic">↑</span>
+                        <div><span class="flow-lab" data-i18n="acc.expenses">Dépenses</span><strong id="msOut">—</strong></div>
                     </div>
                 </div>
-                <canvas id="projChart"></canvas>
+                <button class="send-btn" id="btnSend">
+                    <span class="send-btn__ic">⇄</span>
+                    <span data-i18n="acc.send">Envoyer vers une catégorie</span>
+                </button>
             </div>
-        </section>
 
-        <!-- Tableau des transactions -->
-        <section class="card table-card">
-            <h2>Transactions <span class="muted" id="tableScope"></span></h2>
-            <div class="table-wrap">
-                <table id="txTable">
-                    <thead>
-                        <tr><th>Date</th><th>Libellé</th><th>Catégorie</th><th class="right">Montant</th></tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
+            <!-- Répartition (donut) -->
+            <div class="panel">
+                <div class="panel__head">
+                    <h2 data-i18n="acc.where">Où part votre argent</h2>
+                    <span class="panel__scope" id="pieScope">—</span>
+                </div>
+                <div class="donut-wrap">
+                    <canvas id="pieChart"></canvas>
+                    <div class="donut-center">
+                        <span class="donut-center__lab" data-i18n="acc.totalSpent">Total dépensé</span>
+                        <strong id="donutTotal">—</strong>
+                    </div>
+                </div>
             </div>
-        </section>
-    </main>
 
-    <footer>
-        <p>Données fictives générées pour la démo · Java pur (JDK HttpServer) + Chart.js · <strong>the404squad</strong></p>
-    </footer>
+            <!-- Slots catégories -->
+            <div class="cats-head">
+                <h2 data-i18n="acc.myCats">Mes catégories</h2>
+                <span class="cats-hint" data-i18n="acc.tapHint">Touchez pour les détails</span>
+            </div>
+            <div class="cats-grid" id="catsGrid"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-    <script src="app.js"></script>
+            <button class="btn-addcat" id="btnAddCat">
+                <span class="btn-addcat__plus">+</span>
+                <span data-i18n="acc.addCat">Ajouter une catégorie</span>
+            </button>
+
+            <div class="footer-note" data-i18n="acc.footer">Vos données restent locales · the404squad pour ING</div>
+        </div>
+
+        <nav class="tabbar">
+            <button class="tab is-active"><span>🏠</span><i data-i18n="acc.tabAccounts">Comptes</i></button>
+            <button class="tab" id="tabBackHome"><span>✨</span><i data-i18n="acc.tabHome">Accueil</i></button>
+            <button class="tab" id="tabProfile"><span>👤</span><i data-i18n="acc.tabProfile">Profil</i></button>
+        </nav>
+    </section>
+
+    <!-- ============================ ÉCRAN DÉTAIL CATÉGORIE ============================ -->
+    <section class="screen screen--detail" id="screen-detail">
+        <header class="detail-head" id="detailHead">
+            <button class="iconbtn" id="btnBack" aria-label="Retour">←</button>
+            <div class="detail-head__title">
+                <span class="detail-ic" id="dIcon">•</span>
+                <h1 id="dTitle">—</h1>
+            </div>
+            <span class="iconbtn iconbtn--ghost"></span>
+        </header>
+
+        <div class="detail-scroll">
+            <div class="detail-summary" id="dSummary">
+                <span class="detail-summary__lab" data-i18n="det.spentThisMonth">Dépensé ce mois</span>
+                <div class="detail-summary__amount" id="dTotal">—</div>
+                <div class="budget" id="dBudget">
+                    <div class="budget__bar"><div class="budget__fill" id="dBudgetFill"></div></div>
+                    <div class="budget__meta" id="dBudgetMeta">—</div>
+                </div>
+            </div>
+
+            <div class="trend" id="dTrend">
+                <div class="trend__head"><h2 data-i18n="det.trend6">Tendance sur 6 mois</h2></div>
+                <div class="trend__bars" id="dTrendBars"></div>
+            </div>
+
+            <div class="tx-head"><h2 data-i18n="det.transactions">Opérations</h2><span id="dCount">—</span></div>
+            <ul class="tx-list" id="dTxList"></ul>
+        </div>
+    </section>
+
+    <!-- ============================ FEUILLE MODALE ============================ -->
+    <div class="overlay" id="overlay" hidden>
+        <div class="sheet" id="sheet">
+            <div class="sheet__grab"></div>
+            <div class="sheet__head">
+                <h3 id="sheetTitle">—</h3>
+                <button class="iconbtn iconbtn--dark" id="sheetClose" aria-label="Fermer">✕</button>
+            </div>
+            <div class="sheet__body" id="sheetBody"></div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" hidden></div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

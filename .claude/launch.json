@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ing-app",
+      "runtimeExecutable": "java",
+      "runtimeArgs": ["-cp", "out", "com.the404squad.App"],
+      "port": 8080
+    }
+  ]
+}
