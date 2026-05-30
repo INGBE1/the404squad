@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>the404squad — Gestionnaire de compte</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+</head>
+<body>
+    <header class="topbar">
+        <div class="brand">
+            <span class="logo">404</span>
+            <div>
+                <h1>Gestionnaire de compte</h1>
+                <p class="tagline">the404squad — suivi des dépenses, épargne & investissements</p>
+            </div>
+        </div>
+        <div class="profile" id="profile">
+            <div class="profile-name" id="profileName">—</div>
+            <div class="profile-sub" id="profileSub">—</div>
+        </div>
+    </header>
+
+    <nav class="controls">
+        <label>Période
+            <select id="monthSelect"></select>
+        </label>
+        <div class="view-toggle">
+            <button class="active" id="btnMonth" data-view="month">Vue mensuelle</button>
+            <button id="btnYear" data-view="year">Vue annuelle</button>
+        </div>
+    </nav>
+
+    <main>
+        <!-- Cartes de synthèse -->
+        <section class="cards" id="cards"></section>
+
+        <!-- Budgets & alertes -->
+        <section class="card budget-card">
+            <h2>Budgets &amp; alertes <span class="muted" id="budgetScope"></span></h2>
+            <div id="alerts"></div>
+            <div id="budgets"></div>
+        </section>
+
+        <!-- Graphiques -->
+        <section class="charts">
+            <div class="card chart-card">
+                <h2>Répartition des dépenses <span class="muted" id="pieScope"></span></h2>
+                <canvas id="pieChart"></canvas>
+            </div>
+            <div class="card chart-card wide">
+                <h2>Revenus vs dépenses <span class="muted" id="barScope"></span></h2>
+                <canvas id="barChart"></canvas>
+            </div>
+            <div class="card chart-card proj-card">
+                <div class="chart-head">
+                    <h2>Projection de ton patrimoine</h2>
+                    <div class="view-toggle" id="projToggle">
+                        <button data-years="1">1 an</button>
+                        <button class="active" data-years="10">10 ans</button>
+                    </div>
+                </div>
+                <canvas id="projChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Tableau des transactions -->
+        <section class="card table-card">
+            <h2>Transactions <span class="muted" id="tableScope"></span></h2>
+            <div class="table-wrap">
+                <table id="txTable">
+                    <thead>
+                        <tr><th>Date</th><th>Libellé</th><th>Catégorie</th><th class="right">Montant</th></tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Données fictives générées pour la démo · Java pur (JDK HttpServer) + Chart.js · <strong>the404squad</strong></p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
