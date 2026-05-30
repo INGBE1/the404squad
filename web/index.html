@@ -87,7 +87,7 @@
                     </button>
                     <button class="send-btn" id="btnSend">
                         <span class="send-btn__ic">⇄</span>
-                        <span data-i18n="acc.send">Envoyer vers une catégorie</span>
+                        <span data-i18n="acc.send">Allouer à une catégorie</span>
                     </button>
                 </div>
             </div>
@@ -105,6 +105,21 @@
                         <strong id="donutTotal">—</strong>
                     </div>
                 </div>
+            </div>
+
+            <!-- Projection IA : épargne future estimée à partir des dépenses de la semaine -->
+            <div class="panel forecast" id="forecastCard">
+                <div class="panel__head">
+                    <h2 data-i18n="ai.title">Projection IA</h2>
+                    <span class="forecast__badge" id="aiBadge">—</span>
+                </div>
+                <div class="forecast__hero">
+                    <span class="forecast__lab" data-i18n="ai.in1y">Épargne estimée d'ici 1 an</span>
+                    <strong class="forecast__amount" id="aiYear">—</strong>
+                </div>
+                <p class="forecast__insight" id="aiInsight">—</p>
+                <div class="forecast__chartwrap"><canvas id="aiChart"></canvas></div>
+                <div class="forecast__stats" id="aiStats"></div>
             </div>
 
             <!-- Slots catégories -->

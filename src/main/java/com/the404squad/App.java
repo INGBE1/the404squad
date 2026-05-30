@@ -101,6 +101,7 @@ public final class App {
                 case "/api/categories"   -> stats.categoriesJson();
                 case "/api/merchants"    -> stats.merchantsJson();
                 case "/api/envelopes"    -> stats.envelopesJson();
+                case "/api/forecast"     -> stats.forecastJson(today);
                 default -> null;
             };
 

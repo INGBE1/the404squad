@@ -264,6 +264,22 @@ body {
 .panel__head h2 { font-size: 16px; font-weight: 700; color: var(--ink); }
 .panel__scope { font-size: 12px; color: var(--muted); text-transform: capitalize; }
 
+/* Mini-IA d'épargne */
+.forecast { background: linear-gradient(160deg, #ffffff 0%, #f7f9ff 100%); }
+.forecast__badge { font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 999px; letter-spacing: .2px; }
+.forecast__badge.lvl-positive { color: #137a3a; background: #e3f7ea; }
+.forecast__badge.lvl-tight    { color: #9a5b00; background: #fff1d6; }
+.forecast__badge.lvl-negative { color: #b22020; background: #fde4e4; }
+.forecast__hero { margin-top: 12px; }
+.forecast__lab { font-size: 12px; color: var(--muted); }
+.forecast__amount { display: block; font-size: 30px; font-weight: 800; letter-spacing: -1px; color: var(--ink); margin-top: 2px; }
+.forecast__insight { font-size: 13px; line-height: 1.45; color: var(--navy); margin-top: 10px; }
+.forecast__chartwrap { position: relative; height: 150px; margin-top: 12px; }
+.forecast__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.forecast__stat { background: #f3f5fb; border-radius: 12px; padding: 10px 12px; }
+.forecast__stat span { display: block; font-size: 11px; color: var(--muted); }
+.forecast__stat strong { font-size: 16px; font-weight: 800; color: var(--ink); }
+
 .donut-wrap { position: relative; height: 220px; margin-top: 10px; }
 .donut-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
 .donut-center__lab { font-size: 12px; color: var(--muted); }

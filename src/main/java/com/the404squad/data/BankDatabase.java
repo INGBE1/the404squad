@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -226,13 +227,69 @@ public final class BankDatabase {
     //  Graine de premier lancement (ecrit bank.json)
     // ------------------------------------------------------------------
     private void seedBank() throws IOException {
-        // Depart "propre" : un seul revenu (le salaire du mois courant) et aucune
-        // depense. Les categories se remplissent ensuite via la simulation de paiements.
-        this.profile = new Account("Lina Moreau", 20, "Bruxelles (Ixelles)", "BE71 0961 2345 6769", 2000.00);
-        this.balance = 2000.00;
+        // Releve realiste d'une etudiante a Bruxelles : 6 mois d'historique avec
+        // des operations reparties dans les differentes categories (loyer, courses,
+        // livraison, transport, abonnements, loisirs, sante, + un marchand inconnu).
         LocalDate today = LocalDate.now();
-        transactions.add(new Transaction(seq++, today.withDayOfMonth(1), "Salaire", 2000.00, Category.of("REVENU")));
+        YearMonth current = YearMonth.from(today);
+        for (int back = 5; back >= 0; back--) {
+            seedMonth(current.minusMonths(back), today, back == 0);
+        }
+        transactions.sort((a, b) -> a.date().compareTo(b.date()));
+
+        // Quelques enveloppes deja alimentees pour le mois en cours : l'utilisatrice
+        // a mis de l'argent de cote pour limiter ses depenses dans ces categories.
+        envelopes.put("ALIMENTATION", 120.00);
+        envelopes.put("LOISIRS", 50.00);
+        envelopes.put("TRANSPORT", 30.00);
+
+        // Solde du compte = revenus - depenses - argent place en enveloppes.
+        // (Conservation : solde + somme des enveloppes = revenus - depenses.)
+        double income = 0, expense = 0;
+        for (Transaction t : transactions) {
+            if (t.category().kind == Category.Kind.REVENU) income += t.amount();
+            else expense += t.amount();
+        }
+        double inEnvelopes = 0;
+        for (double d : envelopes.values()) inEnvelopes += d;
+        this.balance = round(income - expense - inEnvelopes);
+
+        this.profile = new Account("Lina Moreau", 20, "Bruxelles (Ixelles)",
+                "BE71 0961 2345 6769", balance);
         saveBank();
+    }
+
+    /** Genere le panier d'operations d'un mois (salaire + depenses variees). */
+    private void seedMonth(YearMonth ym, LocalDate today, boolean isCurrent) {
+        int s = ym.getMonthValue();   // graine de variation deterministe (mois)
+        add(ym, 1,  "Salaire",              2000.00,        "REVENU",       today, isCurrent);
+        add(ym, 3,  "Loyer studio Ixelles",  650.00,        "LOYER",        today, isCurrent);
+        add(ym, 4,  "Netflix",                13.49,        "ABONNEMENTS",  today, isCurrent);
+        add(ym, 5,  "Spotify Premium",        10.99,        "ABONNEMENTS",  today, isCurrent);
+        add(ym, 6,  "STIB abonnement",        49.00,        "TRANSPORT",    today, isCurrent);
+        add(ym, 8,  "Delhaize courses",       42.00 + s % 7, "ALIMENTATION", today, isCurrent);
+        add(ym, 10, "Uber Eats",              18.50 + s % 5, "ALIMENTATION", today, isCurrent);
+        add(ym, 12, "Carrefour Express",      27.00 + s % 9, "ALIMENTATION", today, isCurrent);
+        add(ym, 14, "Kinepolis",              12.50,        "LOISIRS",      today, isCurrent);
+        add(ym, 16, "Shell essence",          38.00 + s % 8, "TRANSPORT",    today, isCurrent);
+        add(ym, 18, "Deliveroo",              16.90 + s % 6, "ALIMENTATION", today, isCurrent);
+        if (s % 2 == 0) add(ym, 20, "Multipharma",       13.20, "SANTE",   today, isCurrent);
+        add(ym, 22, "Steam",                  19.99,        "LOISIRS",      today, isCurrent);
+        add(ym, 24, "Colruyt courses",        35.00 + s % 6, "ALIMENTATION", today, isCurrent);
+        if (s % 3 == 0) add(ym, 26, "Decathlon",         34.90, "LOISIRS", today, isCurrent);
+        if (s % 2 == 1) add(ym, 27, "Pharmacie de garde", 8.60, "SANTE",   today, isCurrent);
+        add(ym, 28, "Carrefour Express",      23.40 + s % 5, "ALIMENTATION", today, isCurrent);
+        add(ym, 29, "Bol.com",                24.99,        "AUTRES",       today, isCurrent);
+    }
+
+    /** Ajoute une operation datee ; ignore toute date future pour le mois en cours. */
+    private void add(YearMonth ym, int day, String label, double amount,
+                     String catKey, LocalDate today, boolean isCurrent) {
+        LocalDate d = ym.atDay(Math.min(day, ym.lengthOfMonth()));
+        if (isCurrent && d.isAfter(today)) return;   // pas d'operations dans le futur
+        Category cat = Category.of(catKey);
+        if (cat == null) return;
+        transactions.add(new Transaction(seq++, d, label, round(amount), cat));
     }
 
     private static double round(double v) {

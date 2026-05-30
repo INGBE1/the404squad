@@ -139,6 +139,67 @@ public final class StatsService {
         return db.merchants().toJson();
     }
 
+    /**
+     * Mini-IA d'epargne : extrapole les depenses des 7 derniers jours pour estimer
+     * combien l'utilisateur mettrait de cote dans le futur s'il garde le meme rythme.
+     *
+     * Methode (heuristique, explicable) :
+     *   1. on additionne les depenses (kind DEPENSE) de la fenetre glissante des 7 derniers jours,
+     *   2. on en deduit une depense quotidienne moyenne, puis une depense mensuelle (x30),
+     *   3. on compare au revenu mensuel moyen observe (total REVENU / nb de mois d'historique),
+     *   4. l'epargne mensuelle = revenu - depense projetee ; on l'accumule sur 12 mois.
+     * Renvoie aussi un "level" (positive / tight / negative) pour le message cote client.
+     */
+    public String forecastJson(LocalDate today) {
+        // 1) Depenses de la semaine glissante [today-6 ; today].
+        LocalDate weekStart = today.minusDays(6);
+        double weekSpend = 0;
+        for (Transaction t : db.transactions()) {
+            if (t.category().kind == Category.Kind.DEPENSE
+                    && !t.date().isBefore(weekStart) && !t.date().isAfter(today)) {
+                weekSpend += t.amount();
+            }
+        }
+        // 2) Projection : moyenne journaliere -> depense mensuelle estimee.
+        double dailyAvg = weekSpend / 7.0;
+        double monthlySpend = dailyAvg * 30.0;
+
+        // 3) Revenu mensuel moyen observe dans l'historique.
+        double totalRevenu = 0;
+        for (Transaction t : db.transactions()) {
+            if (t.category().kind == Category.Kind.REVENU) totalRevenu += t.amount();
+        }
+        double monthlyIncome = totalRevenu / Math.max(1, monthsCovered());
+
+        // 4) Epargne mensuelle estimee et niveau de sante budgetaire.
+        double monthlySavings = monthlyIncome - monthlySpend;
+        String level = monthlySavings <= 0 ? "negative"
+                : (monthlyIncome > 0 && monthlySavings < 0.20 * monthlyIncome) ? "tight" : "positive";
+
+        // Serie cumulee sur 12 mois (point de depart 0).
+        StringBuilder series = new StringBuilder("[");
+        for (int m = 0; m <= 12; m++) {
+            if (m > 0) series.append(",");
+            series.append("{\"month\":").append(m)
+                  .append(",\"savings\":").append(Json.num(r2(monthlySavings * m)))
+                  .append("}");
+        }
+        series.append("]");
+
+        return "{"
+                + "\"weekSpend\":" + Json.num(r2(weekSpend)) + ","
+                + "\"dailyAvg\":" + Json.num(r2(dailyAvg)) + ","
+                + "\"monthlyIncome\":" + Json.num(r2(monthlyIncome)) + ","
+                + "\"monthlySpend\":" + Json.num(r2(monthlySpend)) + ","
+                + "\"monthlySavings\":" + Json.num(r2(monthlySavings)) + ","
+                + "\"year1\":" + Json.num(r2(monthlySavings * 12)) + ","
+                + "\"level\":" + Json.str(level) + ","
+                + "\"series\":" + series
+                + "}";
+    }
+
+    private static double r2(double v) { return Math.round(v * 100.0) / 100.0; }
+
     /** Solde disponible de chaque enveloppe (categorie allouable) : montant restant a depenser. */
     public String envelopesJson() {
         StringBuilder sb = new StringBuilder("[");

@@ -30,9 +30,11 @@ const state = {
     catalog: {},        // key -> { key, labelFr, labelEn, color, icon, kind, budget }
     order: [],          // ordre d'affichage des slots (hors REVENU)
     merchants: [],      // GET /api/merchants : marchands fréquents (simulation de paiement)
+    forecast: null,     // GET /api/forecast : mini-IA d'épargne (extrapolation hebdo)
 };
 
 let pieChart = null;
+let aiChart = null;
 let sloganTimer = null;
 let typeTimer = null;
 
@@ -116,7 +118,7 @@ function applyLang() {
         sel.innerHTML = state.months.map((m) => `<option value="${m}">${monthLabel(m)}</option>`).join("");
         sel.value = state.month;
     }
-    if (state.overview) { renderMainSlot(); renderDonut(); renderCatSlots(); }
+    if (state.overview) { renderMainSlot(); renderDonut(); renderForecast(); renderCatSlots(); }
 }
 
 function setLang(lang) {
@@ -233,10 +235,11 @@ function envStatusOf(key) {
 // --------------------------------------------------------------------
 async function loadAccounts() {
     const year = parseInt(state.month.split("-")[0], 10);
-    const [cats, merchants, envelopes, overview, budgets, txs] = await Promise.all([
+    const [cats, merchants, envelopes, forecast, overview, budgets, txs] = await Promise.all([
         api("/api/categories"),
         api("/api/merchants"),
         api("/api/envelopes"),
+        api("/api/forecast"),
         api(`/api/overview?month=${state.month}&year=${year}`),
         api(`/api/budgets?month=${state.month}`),
         api(`/api/transactions?month=${state.month}`),
@@ -244,6 +247,7 @@ async function loadAccounts() {
     setCatalog(cats);
     state.merchants = merchants;
     state.envelopes = Object.fromEntries(envelopes.map((e) => [e.key, e.available]));
+    state.forecast = forecast;
     state.overview = overview;
     state.budgets = budgets;
     state.txs = txs;
@@ -257,6 +261,7 @@ async function loadAccounts() {
 
     renderMainSlot();
     renderDonut();
+    renderForecast();
     renderCatSlots();
 }
 
@@ -300,6 +305,65 @@ function renderDonut() {
             plugins: {
                 legend: { display: false },
                 tooltip: { callbacks: { label: (c) => `${c.label} : ${euro2(c.raw)}` } },
+            },
+        },
+    });
+}
+
+// --------------------------------------------------------------------
+//  Mini-IA d'épargne (GET /api/forecast) : projette les dépenses de la
+//  semaine vers une estimation d'épargne future + un message localisé.
+// --------------------------------------------------------------------
+function renderForecast() {
+    const f = state.forecast;
+    if (!f) return;
+
+    const badge = document.getElementById("aiBadge");
+    badge.textContent = t("ai.lvl" + cap(f.level));
+    badge.className = "forecast__badge lvl-" + f.level;
+
+    animateValue(document.getElementById("aiYear"), f.year1, euro, 900);
+
+    const vars = {
+        week: euro(f.weekSpend),
+        month: euro(Math.abs(f.monthlySavings)),
+        year: euro(Math.abs(f.year1)),
+        over: euro(Math.abs(f.monthlySavings)),
+    };
+    document.getElementById("aiInsight").textContent = fmt(t("ai.insight" + cap(f.level)), vars);
+
+    document.getElementById("aiStats").innerHTML = `
+        <div class="forecast__stat"><span>${t("ai.weekly")}</span><strong>${euro(f.weekSpend)}</strong></div>
+        <div class="forecast__stat"><span>${t("ai.monthlySave")}</span><strong>${euro(f.monthlySavings)}</strong></div>`;
+
+    renderForecastChart(f);
+}
+
+function renderForecastChart(f) {
+    const ctx = document.getElementById("aiChart");
+    if (aiChart) aiChart.destroy();
+    const line = f.level === "negative" ? "#e23b3b" : f.level === "tight" ? "#e89313" : "#22c55e";
+    aiChart = new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: f.series.map((p) => (p.month === 0 ? t("ai.now") : `${p.month} m`)),
+            datasets: [{
+                data: f.series.map((p) => p.savings),
+                borderColor: line, borderWidth: 2.5, tension: 0.35,
+                fill: true, backgroundColor: hexA(line, 0.12),
+                pointRadius: 0, pointHoverRadius: 4, pointBackgroundColor: line,
+            }],
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            animation: { duration: 900 },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: (c) => euro2(c.raw) } },
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 7, font: { size: 10 } } },
+                y: { grid: { color: "rgba(0,0,0,.05)" }, ticks: { callback: (v) => euro(v), font: { size: 10 }, maxTicksLimit: 4 } },
             },
         },
     });
@@ -746,6 +810,8 @@ function shade(hex, amt) {
 }
 function formatDate(iso) { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
 function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : s; }
+function fmt(tpl, vars) { return String(tpl).replace(/\{(\w+)\}/g, (_, k) => (k in vars ? vars[k] : `{${k}}`)); }
 
 // --------------------------------------------------------------------
 init().catch((e) => {
