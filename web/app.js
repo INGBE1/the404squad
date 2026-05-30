@@ -48,11 +48,15 @@ const monthNamesShort = () => state.i18n?.[state.lang]?.monthsShort ?? [];
 const catName = (key) => {
     const c = state.catalog[key];
     if (!c) return key;
+    // Le catalogue ne porte que FR + EN : le néerlandais retombe sur le libellé EN.
     return state.lang === "fr" ? (c.labelFr || c.labelEn || key) : (c.labelEn || c.labelFr || key);
 };
 
-const euro  = (n) => new Intl.NumberFormat(state.lang === "fr" ? "fr-BE" : "en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-const euro2 = (n) => new Intl.NumberFormat(state.lang === "fr" ? "fr-BE" : "en-IE", { style: "currency", currency: "EUR" }).format(n);
+// Locale de formatage monétaire par langue (FR/NL belges, EN irlandais).
+const LOCALES = { fr: "fr-BE", nl: "nl-BE", en: "en-IE" };
+const numLocale = () => LOCALES[state.lang] || "en-IE";
+const euro  = (n) => new Intl.NumberFormat(numLocale(), { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+const euro2 = (n) => new Intl.NumberFormat(numLocale(), { style: "currency", currency: "EUR" }).format(n);
 
 async function api(path) {
     const res = await fetch(path);
@@ -447,9 +451,8 @@ async function openCategory(key) {
         fill.className = "budget__fill" + (status === "over" ? " is-over" : status === "warn" ? " is-warn" : "");
         fill.style.width = "0%";
         requestAnimationFrame(() => { fill.style.width = Math.min(100, (total / allocated) * 100) + "%"; });
-        document.getElementById("dBudgetMeta").textContent = state.lang === "fr"
-            ? `${euro(avail)} disponibles · ${euro(total)} dépensés`
-            : `${euro(avail)} available · ${euro(total)} spent`;
+        document.getElementById("dBudgetMeta").textContent =
+            `${euro(avail)} ${t("acc.left")} · ${euro(total)} ${t("acc.spent")}`;
     } else {
         budgetEl.classList.add("is-hidden");
     }
@@ -740,7 +743,7 @@ function openAddCatSheet() {
 function openProfileSheet() {
     const o = state.overview;
     const name = o ? o.holder : "—";
-    const sub = o ? `${o.age} ${state.lang === "fr" ? "ans" : "y.o."} · ${o.city}` : "";
+    const sub = o ? `${o.age} ${t("menu.age")} · ${o.city}` : "";
     const body = openSheet(t("menu.title"), `
         <div class="menu-user">
             <div class="avatar">${o ? initials(name) : "··"}</div>
@@ -753,6 +756,7 @@ function openProfileSheet() {
                 <span class="menu-lang" id="menuLang">
                     <button data-lang="fr" class="${state.lang === "fr" ? "is-active" : ""}">FR</button>
                     <button data-lang="en" class="${state.lang === "en" ? "is-active" : ""}">EN</button>
+                    <button data-lang="nl" class="${state.lang === "nl" ? "is-active" : ""}">NL</button>
                 </span></div></li>
             <li><button class="menu-item"><span class="menu-item__ic">💬</span>${t("menu.help")}<span class="menu-item__chev">›</span></button></li>
             <li><button class="menu-item menu-item--danger" id="menuLogout"><span class="menu-item__ic">⏻</span>${t("menu.logout")}</button></li>
