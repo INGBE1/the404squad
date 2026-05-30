@@ -21,7 +21,7 @@ d'épargne sur 1 à 10 ans.
     investissement ~5 %/an).
 - **Budgets & alertes** : budget mensuel par catégorie, **modifiable en direct** (sliders),
   barres de progression et alertes automatiques en cas de dépassement.
-- **Export SQL** de la base au démarrage (`database/bank.sql`).
+- **Export JSON** de la base au démarrage (`database/bank.json`).
 
 ---
 
@@ -115,11 +115,11 @@ the404squad/
 ├── src/main/java/com/the404squad/
 │   ├── App.java                     # serveur HTTP + routage API
 │   ├── model/                       # Account, Category, Transaction
-│   ├── data/BankDatabase.java       # données mock + export SQL
+│   ├── data/BankDatabase.java       # données mock + export JSON
 │   ├── service/StatsService.java    # calculs & sérialisation JSON
 │   └── util/Json.java               # sérialisation JSON minimale
 ├── web/                             # index.html, app.js, style.css (dashboard)
-├── database/bank.sql                # export SQL généré au démarrage
+├── database/bank.json               # export JSON généré au démarrage
 └── out/                             # classes compilées (généré)
 ```
 

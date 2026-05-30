@@ -3,6 +3,7 @@ package com.the404squad.data;
 import com.the404squad.model.Account;
 import com.the404squad.model.Category;
 import com.the404squad.model.Transaction;
+import com.the404squad.util.Json;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,7 +22,7 @@ import java.util.Random;
  * "par mois" ET "par annee" soient bien remplies.
  *
  * La generation est deterministe (seed fixe) : le releve est donc le meme
- * a chaque lancement, et peut etre exporte en SQL via exportSql().
+ * a chaque lancement, et peut etre exporte en JSON via exportJson().
  */
 public final class BankDatabase {
 
@@ -165,54 +166,45 @@ public final class BankDatabase {
     }
 
     // ------------------------------------------------------------------
-    //  Export SQL (livrable "base de donnees")
+    //  Export JSON (livrable "base de donnees")
     // ------------------------------------------------------------------
 
     /**
-     * Ecrit le schema + les INSERT du releve dans un fichier .sql
-     * (compatible H2 / PostgreSQL / SQLite). Appele au demarrage de l'app.
+     * Ecrit le compte + les transactions du releve dans un fichier .json
+     * (objet avec "account" et un tableau "transactions"). Appele au
+     * demarrage de l'app. JSON construit a la main via util/Json (zero dependance).
      */
-    public void exportSql(Path path) throws IOException {
+    public void exportJson(Path path) throws IOException {
         StringBuilder sb = new StringBuilder();
-        sb.append("-- Base de donnees generee par the404squad - gestionnaire de compte\n");
-        sb.append("-- Titulaire : ").append(account.holder())
-          .append(", ").append(account.age()).append(" ans, ")
-          .append(account.city()).append("\n");
-        sb.append("-- IBAN : ").append(account.iban()).append("\n\n");
+        sb.append("{\n");
 
-        sb.append("DROP TABLE IF EXISTS transaction;\n");
-        sb.append("DROP TABLE IF EXISTS account;\n\n");
+        // -------- account --------
+        sb.append("  \"account\": {\n")
+          .append("    \"holder\": ").append(Json.str(account.holder())).append(",\n")
+          .append("    \"age\": ").append(account.age()).append(",\n")
+          .append("    \"city\": ").append(Json.str(account.city())).append(",\n")
+          .append("    \"iban\": ").append(Json.str(account.iban())).append(",\n")
+          .append("    \"starting_balance\": ").append(Json.num(account.startingBalance())).append(",\n")
+          .append("    \"transactions_count\": ").append(transactions.size()).append("\n")
+          .append("  },\n");
 
-        sb.append("CREATE TABLE account (\n")
-          .append("    id               INTEGER PRIMARY KEY,\n")
-          .append("    holder           VARCHAR(100) NOT NULL,\n")
-          .append("    age              INTEGER NOT NULL,\n")
-          .append("    city             VARCHAR(100) NOT NULL,\n")
-          .append("    iban             VARCHAR(40)  NOT NULL,\n")
-          .append("    starting_balance DECIMAL(10,2) NOT NULL\n")
-          .append(");\n\n");
-
-        sb.append("CREATE TABLE transaction (\n")
-          .append("    id        INTEGER PRIMARY KEY,\n")
-          .append("    op_date   DATE NOT NULL,\n")
-          .append("    label     VARCHAR(120) NOT NULL,\n")
-          .append("    amount    DECIMAL(10,2) NOT NULL,  -- toujours positif\n")
-          .append("    category  VARCHAR(20) NOT NULL,    -- REVENU, LOYER, EPARGNE, ...\n")
-          .append("    kind      VARCHAR(20) NOT NULL     -- REVENU / DEPENSE / EPARGNE / INVESTISSEMENT / CREDIT\n")
-          .append(");\n\n");
-
-        sb.append(String.format(
-                "INSERT INTO account VALUES (1, '%s', %d, '%s', '%s', %.2f);%n%n",
-                account.holder(), account.age(), account.city(), account.iban(), account.startingBalance()));
-
-        sb.append("INSERT INTO transaction (id, op_date, label, amount, category, kind) VALUES\n");
+        // -------- transactions --------
+        sb.append("  \"transactions\": [\n");
         for (int i = 0; i < transactions.size(); i++) {
             Transaction t = transactions.get(i);
-            sb.append(String.format("  (%d, '%s', '%s', %.2f, '%s', '%s')%s%n",
-                    t.id(), t.date(), t.label().replace("'", "''"),
-                    t.amount(), t.category().name(), t.category().kind.name(),
-                    i == transactions.size() - 1 ? ";" : ","));
+            sb.append("    {")
+              .append("\"id\": ").append(t.id()).append(", ")
+              .append("\"op_date\": ").append(Json.str(t.date().toString())).append(", ")
+              .append("\"label\": ").append(Json.str(t.label())).append(", ")
+              .append("\"amount\": ").append(Json.num(t.amount())).append(", ")
+              .append("\"category\": ").append(Json.str(t.category().name())).append(", ")
+              .append("\"kind\": ").append(Json.str(t.category().kind.name()))
+              .append("}")
+              .append(i == transactions.size() - 1 ? "\n" : ",\n");
         }
+        sb.append("  ]\n");
+
+        sb.append("}\n");
 
         Files.createDirectories(path.getParent());
         Files.writeString(path, sb.toString());

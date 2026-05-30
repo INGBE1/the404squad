@@ -39,9 +39,9 @@ public final class App {
     }
 
     private void start() throws IOException {
-        // Export du "livrable base de donnees" au demarrage.
-        Path sqlOut = Path.of("database", "bank.sql");
-        db.exportSql(sqlOut);
+        // Export du "livrable base de donnees" au demarrage (format JSON).
+        Path jsonOut = Path.of("database", "bank.json");
+        db.exportJson(jsonOut);
 
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/api/", this::handleApi);
@@ -54,7 +54,7 @@ public final class App {
         System.out.println("  Titulaire : " + db.account().holder()
                 + " (" + db.account().age() + " ans, " + db.account().city() + ")");
         System.out.println("  Transactions generees : " + db.transactions().size());
-        System.out.println("  Base SQL exportee      : " + sqlOut.toAbsolutePath());
+        System.out.println("  Base JSON exportee     : " + jsonOut.toAbsolutePath());
         System.out.println("------------------------------------------------------------");
         System.out.println("  >> Ouvre ton navigateur sur : http://localhost:" + PORT);
         System.out.println("============================================================");
