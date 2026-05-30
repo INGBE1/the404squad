@@ -65,13 +65,9 @@ public final class StatsService {
         return out;
     }
 
-    /** Solde du compte courant = solde initial + tous les flux jusqu'a aujourd'hui. */
+    /** Solde du compte courant : valeur stockee (source de verite JSON), maj a chaque virement. */
     private double soldeCourant(LocalDate asOf) {
-        double solde = db.account().startingBalance();
-        for (Transaction t : db.transactions()) {
-            if (!t.date().isAfter(asOf)) solde += t.signedAmount();
-        }
-        return solde;
+        return db.balance();
     }
 
     /** Patrimoine cumule pour un kind donne (epargne / investissement) jusqu'a aujourd'hui. */
@@ -116,6 +112,26 @@ public final class StatsService {
                 + "\"effortFinancier\":" + Json.num(t.effortFinancier()) + ","
                 + "\"resteAVivre\":" + Json.num(t.resteAVivre())
                 + "}";
+    }
+
+    /** Catalogue complet des categories (built-in + custom) pour le client mobile. */
+    public String categoriesJson() {
+        StringBuilder sb = new StringBuilder("[");
+        boolean first = true;
+        for (Category c : Category.values()) {
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("{")
+              .append("\"key\":").append(Json.str(c.key)).append(",")
+              .append("\"labelFr\":").append(Json.str(c.label)).append(",")
+              .append("\"labelEn\":").append(Json.str(c.labelEn)).append(",")
+              .append("\"color\":").append(Json.str(c.color)).append(",")
+              .append("\"icon\":").append(Json.str(c.icon)).append(",")
+              .append("\"kind\":").append(Json.str(c.kind.name())).append(",")
+              .append("\"budget\":").append(Json.num(c.defaultBudget))
+              .append("}");
+        }
+        return sb.append("]").toString();
     }
 
     /** Repartition par categorie de DEPENSE pour un mois donne (camembert). */

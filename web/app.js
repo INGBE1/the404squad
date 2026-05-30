@@ -1,174 +1,85 @@
 // ====================================================================
 //  ING — Mes comptes (the404squad) · app mobile
-//  Consomme l'API JSON Java existante et pilote 3 écrans :
-//  accueil → comptes → détail catégorie.  i18n FR/EN.
+//  Client léger : toutes les données viennent du JSON / de l'API Java.
+//   • Traductions  → web/data/i18n.json
+//   • Catégories   → GET  /api/categories      (lu depuis data/categories.json)
+//   • Comptes/tx   → GET  /api/overview|budgets|transactions|months
+//   • Virements    → POST /api/transfer        (écrit data/bank.json)
+//   • Catégories + → POST /api/category         (écrit data/categories.json)
+//  Aucune donnée métier n'est codée en dur ici : 3 écrans accueil → comptes
+//  → détail, i18n FR/EN.
 // ====================================================================
 
-// ---------- Catalogue de catégories de base ----------
-const BASE_CATALOG = {
-    LOYER:          { fr: "Loyer",          en: "Rent",          api: "Loyer",          color: "#6366f1", icon: "🏠" },
-    ALIMENTATION:   { fr: "Alimentation",   en: "Groceries",     api: "Alimentation",   color: "#f59e0b", icon: "🛒" },
-    TRANSPORT:      { fr: "Transport",      en: "Transport",     api: "Transport",      color: "#06b6d4", icon: "🚌" },
-    ABONNEMENTS:    { fr: "Abonnements",    en: "Subscriptions", api: "Abonnements",    color: "#8b5cf6", icon: "📺" },
-    LOISIRS:        { fr: "Loisirs",        en: "Leisure",       api: "Loisirs",        color: "#ec4899", icon: "🎮" },
-    SANTE:          { fr: "Santé",          en: "Health",        api: "Sante",          color: "#ef4444", icon: "➕" },
-    EPARGNE:        { fr: "Épargne",        en: "Savings",       api: "Epargne",        color: "#22c55e", icon: "🐷" },
-    INVESTISSEMENT: { fr: "Investissement", en: "Investment",    api: "Investissement", color: "#14b8a6", icon: "📈" },
-};
-
-// ---------- Traductions ----------
-const I18N = {
-    fr: {
-        "home.badge": "Banque mobile",
-        "home.title": "Gardez le contrôle|de votre argent.",
-        "home.cta": "Découvrir mes comptes",
-        "home.legal": "Données de démonstration · the404squad",
-        "acc.current": "Compte courant",
-        "acc.income": "Revenus",
-        "acc.expenses": "Dépenses",
-        "acc.send": "Envoyer vers une catégorie",
-        "acc.where": "Où part votre argent",
-        "acc.totalSpent": "Total dépensé",
-        "acc.myCats": "Mes catégories",
-        "acc.tapHint": "Touchez pour les détails",
-        "acc.addCat": "Ajouter une catégorie",
-        "acc.footer": "Vos données restent locales · the404squad pour ING",
-        "acc.tabAccounts": "Comptes",
-        "acc.tabHome": "Accueil",
-        "acc.tabProfile": "Profil",
-        "det.spentThisMonth": "Dépensé ce mois",
-        "det.trend6": "Tendance sur 6 mois",
-        "det.transactions": "Opérations",
-        "det.empty": "Aucune opération ce mois-ci.",
-        "det.ops": "op.",
-        "det.alloc": "épargne / placement",
-        "sheet.sendTitle": "Envoyer de l'argent",
-        "sheet.to": "Vers quelle catégorie",
-        "sheet.amount": "Montant",
-        "sheet.available": "Solde disponible",
-        "sheet.sendCta": "Envoyer",
-        "sheet.errAmount": "Saisissez un montant valide.",
-        "sheet.errFunds": "Solde insuffisant.",
-        "sheet.errCat": "Choisissez une catégorie.",
-        "sheet.sent": "Envoyé vers",
-        "sheet.newCatTitle": "Nouvelle catégorie",
-        "sheet.name": "Nom",
-        "sheet.namePh": "Ex : Voyages",
-        "sheet.icon": "Icône",
-        "sheet.color": "Couleur",
-        "sheet.budget": "Budget mensuel (optionnel)",
-        "sheet.createCta": "Créer la catégorie",
-        "sheet.errName": "Donnez un nom à la catégorie.",
-        "sheet.created": "Catégorie créée",
-        "menu.title": "Mon profil",
-        "menu.settings": "Paramètres",
-        "menu.language": "Langue",
-        "menu.help": "Aide & support",
-        "menu.security": "Sécurité",
-        "menu.logout": "Déconnexion",
-        "transfer.label": "Virement vers",
-    },
-    en: {
-        "home.badge": "Mobile banking",
-        "home.title": "Stay in control|of your money.",
-        "home.cta": "Explore my accounts",
-        "home.legal": "Demo data · the404squad",
-        "acc.current": "Current account",
-        "acc.income": "Income",
-        "acc.expenses": "Expenses",
-        "acc.send": "Send to a category",
-        "acc.where": "Where your money goes",
-        "acc.totalSpent": "Total spent",
-        "acc.myCats": "My categories",
-        "acc.tapHint": "Tap for details",
-        "acc.addCat": "Add a category",
-        "acc.footer": "Your data stays local · the404squad for ING",
-        "acc.tabAccounts": "Accounts",
-        "acc.tabHome": "Home",
-        "acc.tabProfile": "Profile",
-        "det.spentThisMonth": "Spent this month",
-        "det.trend6": "6-month trend",
-        "det.transactions": "Transactions",
-        "det.empty": "No transactions this month.",
-        "det.ops": "ops",
-        "det.alloc": "savings / investment",
-        "sheet.sendTitle": "Send money",
-        "sheet.to": "To which category",
-        "sheet.amount": "Amount",
-        "sheet.available": "Available balance",
-        "sheet.sendCta": "Send",
-        "sheet.errAmount": "Enter a valid amount.",
-        "sheet.errFunds": "Insufficient balance.",
-        "sheet.errCat": "Pick a category.",
-        "sheet.sent": "Sent to",
-        "sheet.newCatTitle": "New category",
-        "sheet.name": "Name",
-        "sheet.namePh": "e.g. Travel",
-        "sheet.icon": "Icon",
-        "sheet.color": "Color",
-        "sheet.budget": "Monthly budget (optional)",
-        "sheet.createCta": "Create category",
-        "sheet.errName": "Give the category a name.",
-        "sheet.created": "Category created",
-        "menu.title": "My profile",
-        "menu.settings": "Settings",
-        "menu.language": "Language",
-        "menu.help": "Help & support",
-        "menu.security": "Security",
-        "menu.logout": "Log out",
-        "transfer.label": "Transfer to",
-    },
-};
-
-const SLOGANS = {
-    fr: ["Chaque euro compte.", "Vos finances, enfin lisibles.", "Dépensez malin, épargnez serein.", "Votre avenir se construit aujourd'hui."],
-    en: ["Every euro counts.", "Your finances, finally clear.", "Spend smart, save easy.", "Your future starts today."],
-};
-
-const FEATURES = {
-    fr: [
-        { ic: "📊", t: "Vos dépenses, en clair", d: "Réparties par catégorie, en temps réel." },
-        { ic: "🎯", t: "Des budgets qui vous parlent", d: "Alertes dès que ça dérape." },
-        { ic: "🚀", t: "Faites grandir votre épargne", d: "Projetez votre patrimoine sur 10 ans." },
-    ],
-    en: [
-        { ic: "📊", t: "Your spending, made clear", d: "Split by category, in real time." },
-        { ic: "🎯", t: "Budgets that talk to you", d: "Alerts the moment you overspend." },
-        { ic: "🚀", t: "Grow your savings", d: "Project your wealth over 10 years." },
-    ],
-};
-
-const ICON_CHOICES = ["🎒", "✈️", "🍔", "☕", "🎁", "💊", "👕", "🐶", "💡", "📚", "🏋️", "🎵", "🚗", "🌱", "💻", "🎨"];
+// ---------- Choix d'UI pour le sélecteur de nouvelle catégorie ----------
+const ICON_CHOICES  = ["🎒", "✈️", "🍔", "☕", "🎁", "💊", "👕", "🐶", "💡", "📚", "🏋️", "🎵", "🚗", "🌱", "💻", "🎨"];
 const COLOR_CHOICES = ["#FF6200", "#6366f1", "#ec4899", "#06b6d4", "#22c55e", "#f59e0b", "#8b5cf6", "#ef4444", "#14b8a6", "#0ea5e9"];
 
-// ---------- État ----------
+// ---------- État (tout est hydraté depuis le JSON / l'API) ----------
 const state = {
     lang: "fr",
+    i18n: null,         // contenu de data/i18n.json
     months: [],
     month: null,
-    overview: null,
-    budgets: [],        // catégories de dépense (API /budgets)
-    txs: [],            // transactions du mois
-    catTotals: {},      // key -> dépensé réel (API) ce mois
-    catalog: structuredClone(BASE_CATALOG),
-    order: Object.keys(BASE_CATALOG),
-    balance: 3000,      // solde du compte courant (client)
-    transfers: [],      // { key, amount, date } virements émis
+    overview: null,     // GET /api/overview  (soldeCourant = source de vérité)
+    budgets: [],        // GET /api/budgets   (catégories de dépense)
+    txs: [],            // GET /api/transactions (mois courant)
+    catTotals: {},      // key -> dépensé réel ce mois (déduit des tx)
+    catalog: {},        // key -> { key, labelFr, labelEn, color, icon, kind, budget }
+    order: [],          // ordre d'affichage des slots (hors REVENU)
 };
 
 let pieChart = null;
 let sloganTimer = null;
+let typeTimer = null;
 
-const t = (k) => (I18N[state.lang][k] ?? k);
-const catName = (key) => { const c = state.catalog[key]; return c ? (c[state.lang] || c.fr || c.label) : key; };
+// ---------- Accès i18n ----------
+const t = (k) => (state.i18n?.[state.lang]?.strings?.[k]) ?? k;
+const slogansList = () => state.i18n?.[state.lang]?.slogans ?? [];
+const featuresList = () => state.i18n?.[state.lang]?.features ?? [];
+const monthNames = () => state.i18n?.[state.lang]?.months ?? [];
+const monthNamesShort = () => state.i18n?.[state.lang]?.monthsShort ?? [];
 
-const euro = (n) => new Intl.NumberFormat(state.lang === "fr" ? "fr-BE" : "en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
+const catName = (key) => {
+    const c = state.catalog[key];
+    if (!c) return key;
+    return state.lang === "fr" ? (c.labelFr || c.labelEn || key) : (c.labelEn || c.labelFr || key);
+};
+
+const euro  = (n) => new Intl.NumberFormat(state.lang === "fr" ? "fr-BE" : "en-IE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 const euro2 = (n) => new Intl.NumberFormat(state.lang === "fr" ? "fr-BE" : "en-IE", { style: "currency", currency: "EUR" }).format(n);
 
 async function api(path) {
     const res = await fetch(path);
     if (!res.ok) throw new Error("API " + path + " → " + res.status);
     return res.json();
+}
+async function apiPost(path, body) {
+    const res = await fetch(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || ("API " + path + " → " + res.status));
+    return data;
+}
+
+// --------------------------------------------------------------------
+//  Catalogue de catégories (depuis /api/categories)
+// --------------------------------------------------------------------
+function setCatalog(cats) {
+    const catalog = {}, order = [];
+    cats.forEach((c) => {
+        catalog[c.key] = c;
+        if (c.kind !== "REVENU") order.push(c.key);   // les revenus ne sont pas des "postes de dépense"
+    });
+    state.catalog = catalog;
+    state.order = order;
+}
+function keyFromApiLabel(apiLabel) {
+    return state.order.find((k) => state.catalog[k].labelFr === apiLabel)
+        || Object.keys(state.catalog).find((k) => state.catalog[k].labelFr === apiLabel)
+        || null;
 }
 
 // --------------------------------------------------------------------
@@ -195,7 +106,12 @@ function applyLang() {
     renderFeatures();
     restartSlogans();
 
-    // Si l'écran comptes est chargé, on rafraîchit le contenu dynamique.
+    // Rafraîchit le sélecteur de mois (noms localisés) et l'écran comptes.
+    const sel = document.getElementById("monthSelect");
+    if (sel && state.months.length) {
+        sel.innerHTML = state.months.map((m) => `<option value="${m}">${monthLabel(m)}</option>`).join("");
+        sel.value = state.month;
+    }
     if (state.overview) { renderMainSlot(); renderDonut(); renderCatSlots(); }
 }
 
@@ -220,30 +136,29 @@ function renderHomeTitle() {
 
 function renderFeatures() {
     const ul = document.getElementById("homeFeatures");
-    ul.innerHTML = FEATURES[state.lang].map((f, i) => `
+    ul.innerHTML = featuresList().map((f, i) => `
         <li class="feat" style="--d:${0.5 + i * 0.12}s">
             <span class="feat-ic">${f.ic}</span>
-            <div><strong>${f.t}</strong><span>${f.d}</span></div>
+            <div><strong>${escapeHtml(f.t)}</strong><span>${escapeHtml(f.d)}</span></div>
         </li>`).join("");
 }
 
 // Effet machine à écrire sur le slogan + rotation.
-let typeTimer = null;
 function restartSlogans() {
     clearInterval(sloganTimer);
     clearTimeout(typeTimer);
     const el = document.getElementById("heroSlogan");
-    const list = SLOGANS[state.lang];
+    const list = slogansList();
+    if (!list.length) { el.textContent = ""; return; }
     let idx = 0;
 
-    function type(text, done) {
+    function type(text) {
         let i = 0;
         el.innerHTML = `<span class="typed"></span><span class="cursor"></span>`;
         const span = el.querySelector(".typed");
         (function step() {
             span.textContent = text.slice(0, i);
             if (i++ <= text.length) typeTimer = setTimeout(step, 38);
-            else if (done) done();
         })();
     }
     type(list[idx]);
@@ -257,6 +172,7 @@ function restartSlogans() {
 //  Initialisation
 // --------------------------------------------------------------------
 async function init() {
+    state.i18n = await api("data/i18n.json");
     applyLang();
 
     document.getElementById("langToggle").addEventListener("click", (e) => {
@@ -282,23 +198,15 @@ async function init() {
 
 function monthLabel(m) {
     const [y, mo] = m.split("-");
-    const noms = state.lang === "fr"
-        ? ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
-        : ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    return `${noms[parseInt(mo) - 1]} ${y}`;
+    const noms = monthNames();
+    return `${noms[parseInt(mo, 10) - 1] ?? mo} ${y}`;
 }
 
 // --------------------------------------------------------------------
 //  Helpers données
 // --------------------------------------------------------------------
-function keyFromApiLabel(apiLabel) {
-    return Object.keys(state.catalog).find((k) => state.catalog[k].api === apiLabel) || null;
-}
-function transferTotal(key) {
-    return state.transfers.filter((x) => x.key === key).reduce((s, x) => s + x.amount, 0);
-}
 function spentOf(key) {
-    return (state.catTotals[key] || 0) + transferTotal(key);
+    return state.catTotals[key] || 0;
 }
 function budgetOf(key) {
     const b = state.budgets.find((x) => x.key === key);
@@ -317,12 +225,14 @@ function statusOf(key) {
 //  Écran COMPTES
 // --------------------------------------------------------------------
 async function loadAccounts() {
-    const year = parseInt(state.month.split("-")[0]);
-    const [overview, budgets, txs] = await Promise.all([
+    const year = parseInt(state.month.split("-")[0], 10);
+    const [cats, overview, budgets, txs] = await Promise.all([
+        api("/api/categories"),
         api(`/api/overview?month=${state.month}&year=${year}`),
         api(`/api/budgets?month=${state.month}`),
         api(`/api/transactions?month=${state.month}`),
     ]);
+    setCatalog(cats);
     state.overview = overview;
     state.budgets = budgets;
     state.txs = txs;
@@ -344,10 +254,9 @@ function renderMainSlot() {
     document.getElementById("avatar").textContent = initials(o.holder);
     document.getElementById("msHolder").textContent = o.holder;
     document.getElementById("msIban").textContent = maskIban(o.iban);
-    animateValue(document.getElementById("msBalance"), state.balance, euro2, 1000);
+    animateValue(document.getElementById("msBalance"), o.soldeCourant, euro2, 1000);
     document.getElementById("msIn").textContent = euro(o.month.revenus);
-    const totalTransfers = state.transfers.reduce((s, x) => s + x.amount, 0);
-    document.getElementById("msOut").textContent = euro(o.month.depenses + totalTransfers);
+    document.getElementById("msOut").textContent = euro(o.month.depenses);
 }
 
 function initials(name) { return name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase(); }
@@ -399,7 +308,7 @@ function renderCatSlots() {
         if (hasBudget) {
             sub = `<span>${euro(spent)} / ${euro(budget)}</span><span>${Math.round((spent / budget) * 100)}%</span>`;
             subCls = status === "over" ? "is-over" : status === "warn" ? "is-warn" : "";
-        } else if (key === "EPARGNE" || key === "INVESTISSEMENT") {
+        } else if (c.kind === "EPARGNE" || c.kind === "INVESTISSEMENT") {
             sub = `<span>${t("det.alloc")}</span>`;
         } else {
             sub = `<span>&nbsp;</span>`;
@@ -409,7 +318,7 @@ function renderCatSlots() {
         <button class="cat-slot" data-key="${key}" style="--d:${i * 0.04}s">
             <span class="cat-slot__go">›</span>
             <span class="cat-slot__ic" style="background:${hexA(c.color, .14)}">${c.icon}</span>
-            <div class="cat-slot__name">${catName(key)}</div>
+            <div class="cat-slot__name">${escapeHtml(catName(key))}</div>
             <div class="cat-slot__amount">${euro(spent)}</div>
             ${hasBudget ? `<div class="cat-slot__bar"><div class="cat-slot__fill" data-pct="${Math.min(100, (spent / budget) * 100)}" style="background:${fillColor}"></div></div>` : ""}
             <div class="cat-slot__sub ${subCls}">${sub}</div>
@@ -431,6 +340,10 @@ function hexA(hex, a) {
 // --------------------------------------------------------------------
 //  Écran DÉTAIL catégorie
 // --------------------------------------------------------------------
+function isTransferLabel(label) {
+    return /^virement\s+vers/i.test(label) || /^transfer\s+to/i.test(label);
+}
+
 async function openCategory(key) {
     const c = state.catalog[key];
     const head = document.getElementById("detailHead");
@@ -438,12 +351,12 @@ async function openCategory(key) {
     document.getElementById("dIcon").textContent = c.icon;
     document.getElementById("dTitle").textContent = catName(key);
 
-    // Transactions réelles + virements de la catégorie.
-    const real = state.txs.filter((tx) => tx.category === c.api)
-        .map((tx) => ({ date: tx.date, label: tx.label, amount: tx.amount }));
-    const virt = state.transfers.filter((x) => x.key === key)
-        .map((x) => ({ date: x.date, label: `${t("transfer.label")} ${catName(key)}`, amount: -x.amount, isTransfer: true }));
-    const txs = [...real, ...virt].sort((a, b) => b.date.localeCompare(a.date));
+    // Transactions réelles de la catégorie (les virements y figurent déjà,
+    // libellés « Virement vers … » et rattachés à la catégorie cible).
+    const txs = state.txs
+        .filter((tx) => tx.category === c.labelFr)
+        .map((tx) => ({ date: tx.date, label: tx.label, amount: tx.amount, isTransfer: isTransferLabel(tx.label) }))
+        .sort((a, b) => b.date.localeCompare(a.date));
 
     const total = spentOf(key);
     document.getElementById("dCount").textContent = `${txs.length} ${t("det.ops")}`;
@@ -494,8 +407,7 @@ async function loadTrend(key, c) {
     const months = lastMonths(state.month, 6);
     const results = await Promise.all(months.map((m) => api(`/api/transactions?month=${m}`).catch(() => [])));
     const series = results.map((txs, i) => {
-        let total = txs.filter((tx) => tx.category === c.api).reduce((s, tx) => s + Math.abs(tx.amount), 0);
-        if (months[i] === state.month) total += transferTotal(key);
+        const total = txs.filter((tx) => tx.category === c.labelFr).reduce((s, tx) => s + Math.abs(tx.amount), 0);
         return { month: months[i], total };
     });
     const max = Math.max(1, ...series.map((s) => s.total));
@@ -530,20 +442,22 @@ function closeSheet() {
     setTimeout(() => { ov.hidden = true; ov.classList.remove("is-closing"); }, 200);
 }
 
-// ---- Envoyer de l'argent ----
+// ---- Envoyer de l'argent (POST /api/transfer) ----
 function openSendSheet() {
+    if (!state.overview) return;
+    const balance = state.overview.soldeCourant;
     const opts = state.order.map((key) => {
         const c = state.catalog[key];
         return `
         <button class="cat-opt" data-key="${key}">
             <span class="cat-opt__ic" style="background:${hexA(c.color, .15)}">${c.icon}</span>
-            <span class="cat-opt__name">${catName(key)}</span>
+            <span class="cat-opt__name">${escapeHtml(catName(key))}</span>
             <span class="cat-opt__spent">${euro(spentOf(key))}</span>
         </button>`;
     }).join("");
 
     const body = openSheet(t("sheet.sendTitle"), `
-        <div class="sheet-balance">${t("sheet.available")} : <strong id="sendBal">${euro2(state.balance)}</strong></div>
+        <div class="sheet-balance">${t("sheet.available")} : <strong id="sendBal">${euro2(balance)}</strong></div>
         <div class="field">
             <label>${t("sheet.amount")}</label>
             <div class="amount-field">
@@ -566,22 +480,32 @@ function openSendSheet() {
         selKey = el.dataset.key;
     }));
 
-    body.querySelector("#sendConfirm").addEventListener("click", () => {
+    const confirm = body.querySelector("#sendConfirm");
+    confirm.addEventListener("click", async () => {
         const err = body.querySelector("#sendErr");
+        err.textContent = "";
         const amount = Math.round(parseFloat(body.querySelector("#sendAmount").value) * 100) / 100;
         if (!selKey) { err.textContent = t("sheet.errCat"); return; }
         if (isNaN(amount) || amount <= 0) { err.textContent = t("sheet.errAmount"); return; }
-        if (amount > state.balance) { err.textContent = t("sheet.errFunds"); return; }
+        if (amount > balance) { err.textContent = t("sheet.errFunds"); return; }
 
-        state.balance -= amount;
-        state.transfers.push({ key: selKey, amount, date: state.month + "-" + String(new Date().getDate()).padStart(2, "0") });
-        closeSheet();
-        renderMainSlot(); renderDonut(); renderCatSlots();
-        toast(`${t("sheet.sent")} ${catName(selKey)} · ${euro2(amount)}`, true);
+        const targetKey = selKey;
+        confirm.disabled = true;
+        confirm.textContent = t("sheet.saving");
+        try {
+            await apiPost("/api/transfer", { categoryKey: targetKey, amount });
+            await loadAccounts();
+            closeSheet();
+            toast(`${t("sheet.sent")} ${catName(targetKey)} · ${euro2(amount)}`, true);
+        } catch (e) {
+            err.textContent = e.message;
+            confirm.disabled = false;
+            confirm.textContent = t("sheet.sendCta");
+        }
     });
 }
 
-// ---- Ajouter une catégorie ----
+// ---- Ajouter une catégorie (POST /api/category) ----
 function openAddCatSheet() {
     const icons = ICON_CHOICES.map((ic, i) => `<button class="pick ${i === 0 ? "is-sel" : ""}" data-icon="${ic}">${ic}</button>`).join("");
     const colors = COLOR_CHOICES.map((col, i) => `<button class="pick swatch ${i === 0 ? "is-sel" : ""}" data-color="${col}" style="background:${col}"></button>`).join("");
@@ -622,19 +546,31 @@ function openAddCatSheet() {
         b.classList.add("is-sel"); color = b.dataset.color;
     });
 
-    body.querySelector("#catConfirm").addEventListener("click", () => {
+    const confirm = body.querySelector("#catConfirm");
+    confirm.addEventListener("click", async () => {
         const err = body.querySelector("#catErr");
+        err.textContent = "";
         const name = body.querySelector("#catName").value.trim();
         if (!name) { err.textContent = t("sheet.errName"); return; }
         const budget = parseFloat(body.querySelector("#catBudget").value) || 0;
-        const key = "CUSTOM_" + Date.now();
-        state.catalog[key] = { fr: name, en: name, api: key, color, icon, budget };
-        state.order.push(key);
-        closeSheet();
-        renderDonut(); renderCatSlots();
-        toast(`${t("sheet.created")} · ${name}`, true);
-        // Petit scroll vers la nouvelle catégorie.
-        document.querySelector(".accounts-scroll").scrollTo({ top: document.querySelector("#catsGrid").offsetTop, behavior: "smooth" });
+
+        confirm.disabled = true;
+        confirm.textContent = t("sheet.saving");
+        try {
+            const created = await apiPost("/api/category", { name, icon, color, budget });
+            await loadAccounts();
+            closeSheet();
+            toast(`${t("sheet.created")} · ${name}`, true);
+            // Petit scroll vers la grille de catégories.
+            const grid = document.querySelector("#catsGrid");
+            if (created && grid) {
+                document.querySelector(".accounts-scroll").scrollTo({ top: grid.offsetTop, behavior: "smooth" });
+            }
+        } catch (e) {
+            err.textContent = e.message;
+            confirm.disabled = false;
+            confirm.textContent = t("sheet.createCta");
+        }
     });
 }
 
@@ -646,7 +582,7 @@ function openProfileSheet() {
     const body = openSheet(t("menu.title"), `
         <div class="menu-user">
             <div class="avatar">${o ? initials(name) : "··"}</div>
-            <div><div class="menu-user__name">${name}</div><div class="menu-user__sub">${sub}</div></div>
+            <div><div class="menu-user__name">${escapeHtml(name)}</div><div class="menu-user__sub">${escapeHtml(sub)}</div></div>
         </div>
         <ul class="menu-list">
             <li><button class="menu-item"><span class="menu-item__ic">⚙️</span>${t("menu.settings")}<span class="menu-item__chev">›</span></button></li>
@@ -700,9 +636,7 @@ function lastMonths(month, n) {
     return out;
 }
 function shortMonth(m) {
-    const fr = ["jan", "fév", "mar", "avr", "mai", "juin", "juil", "aoû", "sep", "oct", "nov", "déc"];
-    const en = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
-    return (state.lang === "fr" ? fr : en)[parseInt(m.split("-")[1]) - 1];
+    return monthNamesShort()[parseInt(m.split("-")[1], 10) - 1] ?? m;
 }
 function shade(hex, amt) {
     const n = parseInt(hex.slice(1), 16);
@@ -713,10 +647,10 @@ function shade(hex, amt) {
     return `rgb(${r},${g},${b})`;
 }
 function formatDate(iso) { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
-function escapeHtml(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+function escapeHtml(s) { return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 
 // --------------------------------------------------------------------
 init().catch((e) => {
     document.querySelector(".phone").insertAdjacentHTML("beforeend",
-        `<div class="toast">Erreur de chargement : ${e.message}</div>`);
+        `<div class="toast">${(state.i18n ? t("err.load") : "Erreur de chargement")} : ${escapeHtml(e.message)}</div>`);
 });

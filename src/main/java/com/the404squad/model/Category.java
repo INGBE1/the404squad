@@ -1,35 +1,52 @@
 package com.the404squad.model;
 
-/**
- * Categories de mouvements bancaires pour le gestionnaire de compte.
- * Chaque categorie porte un libelle FR, une couleur (pour les graphiques)
- * et un "kind" qui dit comment la traiter dans les statistiques.
- */
-public enum Category {
-    REVENU("Revenu", "#3b82f6", Kind.REVENU, 0),
-    LOYER("Loyer", "#6366f1", Kind.DEPENSE, 520),
-    ALIMENTATION("Alimentation", "#f59e0b", Kind.DEPENSE, 250),
-    TRANSPORT("Transport", "#06b6d4", Kind.DEPENSE, 60),
-    ABONNEMENTS("Abonnements", "#8b5cf6", Kind.DEPENSE, 45),
-    LOISIRS("Loisirs", "#ec4899", Kind.DEPENSE, 120),
-    SANTE("Sante", "#ef4444", Kind.DEPENSE, 40),
-    EPARGNE("Epargne", "#22c55e", Kind.EPARGNE, 0),
-    INVESTISSEMENT("Investissement", "#14b8a6", Kind.INVESTISSEMENT, 0),
-    CREDIT("Credit", "#f97316", Kind.CREDIT, 0);
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
-    /** Nature d'un mouvement : entree d'argent, depense de consommation, ou allocation (epargne/invest/credit). */
+/**
+ * Categorie de mouvement bancaire.
+ *
+ * N'est plus un enum : les categories sont desormais des DONNEES chargees
+ * depuis {@code data/categories.json} (source de verite). Un registre statique
+ * conserve l'ordre d'insertion et permet de retrouver une categorie par sa cle.
+ *
+ * Chaque categorie porte un libelle FR + EN, une couleur, une icone (emoji),
+ * un {@link Kind} (nature du mouvement) et un budget mensuel par defaut.
+ */
+public final class Category {
+
+    /** Nature d'un mouvement : entree, depense, ou allocation (epargne / invest / credit). */
     public enum Kind { REVENU, DEPENSE, EPARGNE, INVESTISSEMENT, CREDIT }
 
-    public final String label;
+    private static final Map<String, Category> REGISTRY = new LinkedHashMap<>();
+
+    public final String key;
+    public final String label;     // libelle FR (compat dashboard)
+    public final String labelEn;   // libelle EN
     public final String color;
+    public final String icon;
     public final Kind kind;
-    /** Budget mensuel par defaut (EUR) pour les categories de depense ; 0 pour les autres. */
     public final double defaultBudget;
 
-    Category(String label, String color, Kind kind, double defaultBudget) {
+    public Category(String key, String label, String labelEn, String color,
+                    String icon, Kind kind, double defaultBudget) {
+        this.key = key;
         this.label = label;
+        this.labelEn = labelEn;
         this.color = color;
+        this.icon = icon;
         this.kind = kind;
         this.defaultBudget = defaultBudget;
     }
+
+    /** Cle technique (ex. "LOYER"). Conserve le nom de l'ancien enum pour compat. */
+    public String name() { return key; }
+
+    // ---- Registre ----
+    public static Collection<Category> values() { return REGISTRY.values(); }
+    public static Category of(String key) { return REGISTRY.get(key); }
+    public static boolean exists(String key) { return REGISTRY.containsKey(key); }
+    public static void register(Category c) { REGISTRY.put(c.key, c); }
+    public static void clear() { REGISTRY.clear(); }
 }

@@ -4,6 +4,8 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import com.the404squad.data.BankDatabase;
 import com.the404squad.service.StatsService;
+import com.the404squad.util.Json;
+import com.the404squad.util.JsonParser;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -67,6 +69,13 @@ public final class App {
     private void handleApi(HttpExchange ex) throws IOException {
         try {
             String path = ex.getRequestURI().getPath();
+
+            // --- Mutations (POST) : persistées dans les fichiers JSON ---
+            if ("POST".equalsIgnoreCase(ex.getRequestMethod())) {
+                handlePost(ex, path);
+                return;
+            }
+
             Map<String, String> q = parseQuery(ex.getRequestURI().getRawQuery());
 
             LocalDate today = LocalDate.now();
@@ -89,6 +98,7 @@ public final class App {
                 case "/api/months"       -> stats.availableMonthsJson();
                 case "/api/budgets"      -> stats.budgetsJson(month, budgetOverrides(q));
                 case "/api/projection"   -> stats.projectionJson(today, years);
+                case "/api/categories"   -> stats.categoriesJson();
                 default -> null;
             };
 
@@ -100,6 +110,40 @@ public final class App {
         } catch (Exception e) {
             send(ex, 500, "application/json",
                     "{\"error\":" + com.the404squad.util.Json.str(String.valueOf(e.getMessage())) + "}");
+        }
+    }
+
+    // ------------------------------------------------------------------
+    //  Mutations JSON (POST)
+    // ------------------------------------------------------------------
+    private void handlePost(HttpExchange ex, String path) throws IOException {
+        try {
+            Map<String, Object> body = JsonParser.asObject(
+                    JsonParser.parse(new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
+
+            switch (path) {
+                case "/api/transfer" -> {
+                    String key = JsonParser.asString(body.get("categoryKey"));
+                    double amount = JsonParser.asDouble(body.get("amount"));
+                    double balance = db.transfer(key, amount, java.time.LocalDate.now());
+                    send(ex, 200, "application/json", "{\"ok\":true,\"balance\":" + Json.num(balance) + "}");
+                }
+                case "/api/category" -> {
+                    String name = JsonParser.asString(body.get("name"));
+                    String icon = JsonParser.asString(body.get("icon"));
+                    String color = JsonParser.asString(body.get("color"));
+                    double budget = JsonParser.asDouble(body.get("budget"));
+                    if (name == null || name.isBlank()) {
+                        send(ex, 400, "application/json", "{\"error\":\"name required\"}");
+                        return;
+                    }
+                    var cat = db.addCategory(name.trim(), icon, color, budget);
+                    send(ex, 200, "application/json", com.the404squad.data.CategoryRepository.toJson(cat));
+                }
+                default -> send(ex, 404, "application/json", "{\"error\":\"not found\"}");
+            }
+        } catch (IllegalArgumentException e) {
+            send(ex, 400, "application/json", "{\"error\":" + Json.str(String.valueOf(e.getMessage())) + "}");
         }
     }
 
