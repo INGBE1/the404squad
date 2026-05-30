@@ -4,7 +4,9 @@
 //   • Traductions  → web/data/i18n.json
 //   • Catégories   → GET  /api/categories      (lu depuis data/categories.json)
 //   • Comptes/tx   → GET  /api/overview|budgets|transactions|months
-//   • Virements    → POST /api/transfer        (écrit data/bank.json)
+//   • Enveloppes   → GET  /api/envelopes        (solde dispo par catégorie)
+//   • Allocations  → POST /api/allocate         (main → enveloppe ; pas une dépense)
+//   • Paiements    → POST /api/purchase         (enveloppe d'abord, surplus sur le main)
 //   • Catégories + → POST /api/category         (écrit data/categories.json)
 //  Aucune donnée métier n'est codée en dur ici : 3 écrans accueil → comptes
 //  → détail, i18n FR/EN.
@@ -24,8 +26,10 @@ const state = {
     budgets: [],        // GET /api/budgets   (catégories de dépense)
     txs: [],            // GET /api/transactions (mois courant)
     catTotals: {},      // key -> dépensé réel ce mois (déduit des tx)
+    envelopes: {},      // GET /api/envelopes : key -> solde disponible (enveloppe budget)
     catalog: {},        // key -> { key, labelFr, labelEn, color, icon, kind, budget }
     order: [],          // ordre d'affichage des slots (hors REVENU)
+    merchants: [],      // GET /api/merchants : marchands fréquents (simulation de paiement)
 };
 
 let pieChart = null;
@@ -181,6 +185,7 @@ async function init() {
     document.getElementById("btnStart").addEventListener("click", () => { show("screen-accounts"); loadAccounts(); });
     document.getElementById("tabBackHome").addEventListener("click", () => show("screen-home"));
     document.getElementById("btnBack").addEventListener("click", () => show("screen-accounts"));
+    document.getElementById("btnPay").addEventListener("click", openPaySheet);
     document.getElementById("btnSend").addEventListener("click", openSendSheet);
     document.getElementById("btnAddCat").addEventListener("click", openAddCatSheet);
     document.getElementById("avatar").addEventListener("click", openProfileSheet);
@@ -208,16 +213,18 @@ function monthLabel(m) {
 function spentOf(key) {
     return state.catTotals[key] || 0;
 }
-function budgetOf(key) {
-    const b = state.budgets.find((x) => x.key === key);
-    if (b) return b.budget;
-    const c = state.catalog[key];
-    return c && c.budget ? c.budget : 0;
+// Solde disponible de l'enveloppe (ce qu'il reste à dépenser dans la catégorie).
+function availableOf(key) {
+    return state.envelopes[key] || 0;
 }
-function statusOf(key) {
-    const budget = budgetOf(key);
-    if (budget <= 0) return "ok";
-    const pct = (spentOf(key) / budget) * 100;
+// Base allouée approchée = disponible + déjà dépensé ce mois (jauge de consommation).
+function allocatedOf(key) {
+    return availableOf(key) + spentOf(key);
+}
+function envStatusOf(key) {
+    const denom = allocatedOf(key);
+    if (denom <= 0) return "ok";
+    const pct = (spentOf(key) / denom) * 100;
     return pct >= 100 ? "over" : pct >= 80 ? "warn" : "ok";
 }
 
@@ -226,13 +233,17 @@ function statusOf(key) {
 // --------------------------------------------------------------------
 async function loadAccounts() {
     const year = parseInt(state.month.split("-")[0], 10);
-    const [cats, overview, budgets, txs] = await Promise.all([
+    const [cats, merchants, envelopes, overview, budgets, txs] = await Promise.all([
         api("/api/categories"),
+        api("/api/merchants"),
+        api("/api/envelopes"),
         api(`/api/overview?month=${state.month}&year=${year}`),
         api(`/api/budgets?month=${state.month}`),
         api(`/api/transactions?month=${state.month}`),
     ]);
     setCatalog(cats);
+    state.merchants = merchants;
+    state.envelopes = Object.fromEntries(envelopes.map((e) => [e.key, e.available]));
     state.overview = overview;
     state.budgets = budgets;
     state.txs = txs;
@@ -298,20 +309,20 @@ function renderCatSlots() {
     const grid = document.getElementById("catsGrid");
     grid.innerHTML = state.order.map((key, i) => {
         const c = state.catalog[key];
+        const avail = availableOf(key);
         const spent = spentOf(key);
-        const budget = budgetOf(key);
-        const hasBudget = budget > 0;
-        const status = statusOf(key);
+        const allocated = allocatedOf(key);     // disponible + dépensé
+        const hasEnv = allocated > 0;
+        const status = envStatusOf(key);
         const fillColor = status === "over" ? "#e23b3b" : status === "warn" ? "#e89313" : c.color;
+        const pct = allocated > 0 ? Math.min(100, (spent / allocated) * 100) : 0;
 
         let sub, subCls = "";
-        if (hasBudget) {
-            sub = `<span>${euro(spent)} / ${euro(budget)}</span><span>${Math.round((spent / budget) * 100)}%</span>`;
+        if (hasEnv) {
+            sub = `<span>${euro(spent)} ${t("acc.spent")}</span><span>${euro(avail)} ${t("acc.left")}</span>`;
             subCls = status === "over" ? "is-over" : status === "warn" ? "is-warn" : "";
-        } else if (c.kind === "EPARGNE" || c.kind === "INVESTISSEMENT") {
-            sub = `<span>${t("det.alloc")}</span>`;
         } else {
-            sub = `<span>&nbsp;</span>`;
+            sub = `<span>${t("acc.empty")}</span>`;
         }
 
         return `
@@ -319,8 +330,8 @@ function renderCatSlots() {
             <span class="cat-slot__go">›</span>
             <span class="cat-slot__ic" style="background:${hexA(c.color, .14)}">${c.icon}</span>
             <div class="cat-slot__name">${escapeHtml(catName(key))}</div>
-            <div class="cat-slot__amount">${euro(spent)}</div>
-            ${hasBudget ? `<div class="cat-slot__bar"><div class="cat-slot__fill" data-pct="${Math.min(100, (spent / budget) * 100)}" style="background:${fillColor}"></div></div>` : ""}
+            <div class="cat-slot__amount">${euro(avail)}</div>
+            ${hasEnv ? `<div class="cat-slot__bar"><div class="cat-slot__fill" data-pct="${pct}" style="background:${fillColor}"></div></div>` : ""}
             <div class="cat-slot__sub ${subCls}">${sub}</div>
         </button>`;
     }).join("");
@@ -362,19 +373,19 @@ async function openCategory(key) {
     document.getElementById("dCount").textContent = `${txs.length} ${t("det.ops")}`;
     animateValue(document.getElementById("dTotal"), total, euro2, 800);
 
-    const budget = budgetOf(key);
+    const avail = availableOf(key);
+    const allocated = allocatedOf(key);   // disponible + dépensé ce mois
     const budgetEl = document.getElementById("dBudget");
-    if (budget > 0) {
+    if (allocated > 0) {
         budgetEl.classList.remove("is-hidden");
-        const status = statusOf(key);
+        const status = envStatusOf(key);
         const fill = document.getElementById("dBudgetFill");
         fill.className = "budget__fill" + (status === "over" ? " is-over" : status === "warn" ? " is-warn" : "");
         fill.style.width = "0%";
-        requestAnimationFrame(() => { fill.style.width = Math.min(100, (total / budget) * 100) + "%"; });
-        const left = budget - total;
+        requestAnimationFrame(() => { fill.style.width = Math.min(100, (total / allocated) * 100) + "%"; });
         document.getElementById("dBudgetMeta").textContent = state.lang === "fr"
-            ? (left >= 0 ? `${euro(left)} restants sur un budget de ${euro(budget)}` : `Dépassé de ${euro(-left)} (budget ${euro(budget)})`)
-            : (left >= 0 ? `${euro(left)} left of a ${euro(budget)} budget` : `Over by ${euro(-left)} (budget ${euro(budget)})`);
+            ? `${euro(avail)} disponibles · ${euro(total)} dépensés`
+            : `${euro(avail)} available · ${euro(total)} spent`;
     } else {
         budgetEl.classList.add("is-hidden");
     }
@@ -442,7 +453,94 @@ function closeSheet() {
     setTimeout(() => { ov.hidden = true; ov.classList.remove("is-closing"); }, 200);
 }
 
-// ---- Envoyer de l'argent (POST /api/transfer) ----
+// ---- Simuler un paiement (POST /api/purchase) ----
+// L'utilisateur saisit (ou choisit) un marchand + un montant. Le backend devine
+// la catégorie via data/merchants.json ; s'il ne reconnaît pas, ça tombe dans « Autres ».
+function openPaySheet() {
+    if (!state.overview) return;
+    const balance = state.overview.soldeCourant;
+    const quick = state.merchants.map((m) => `
+        <button class="merchant" data-name="${escapeHtml(m.name)}">
+            <span class="merchant__ic">${m.icon}</span>
+            <span class="merchant__name">${escapeHtml(m.name)}</span>
+        </button>`).join("");
+
+    const body = openSheet(t("pay.title"), `
+        <div class="sheet-balance">${t("sheet.available")} : <strong id="payBal">${euro2(balance)}</strong></div>
+        <div class="field">
+            <label>${t("sheet.amount")}</label>
+            <div class="amount-field">
+                <input type="number" id="payAmount" inputmode="decimal" min="0" step="1" placeholder="0">
+                <span class="cur">€</span>
+            </div>
+        </div>
+        <div class="field">
+            <label>${t("pay.quick")}</label>
+            <div class="merchant-grid" id="payMerchants">${quick}</div>
+        </div>
+        <div class="field">
+            <label>${t("pay.merchant")}</label>
+            <input type="text" id="payMerchant" maxlength="40" placeholder="${t("pay.merchantPh")}">
+        </div>
+        <div class="sheet-hint">${t("pay.note")}</div>
+        <div class="sheet-err" id="payErr"></div>
+        <button class="btn--cta" id="payConfirm">${t("pay.cta")}</button>
+    `);
+
+    const input = body.querySelector("#payMerchant");
+    body.querySelectorAll(".merchant").forEach((el) => el.addEventListener("click", () => {
+        body.querySelectorAll(".merchant").forEach((x) => x.classList.remove("is-sel"));
+        el.classList.add("is-sel");
+        input.value = el.dataset.name;
+    }));
+    // Si l'utilisateur tape à la main, on désélectionne les boutons.
+    input.addEventListener("input", () => body.querySelectorAll(".merchant").forEach((x) => x.classList.remove("is-sel")));
+
+    const confirm = body.querySelector("#payConfirm");
+    confirm.addEventListener("click", async () => {
+        const err = body.querySelector("#payErr");
+        err.textContent = "";
+        const merchant = input.value.trim();
+        const amount = Math.round(parseFloat(body.querySelector("#payAmount").value) * 100) / 100;
+        if (!merchant) { err.textContent = t("pay.errMerchant"); return; }
+        if (isNaN(amount) || amount <= 0) { err.textContent = t("sheet.errAmount"); return; }
+        // Pas de contrôle de solde ici : le serveur vérifie « enveloppe + compte »
+        // car la catégorie cible dépend du marchand (résolu côté backend).
+
+        confirm.disabled = true;
+        confirm.textContent = t("sheet.saving");
+        try {
+            const res = await apiPost("/api/purchase", { merchant, amount });
+            await loadAccounts();
+            closeSheet();
+            toast(purchaseMessage(res, merchant, amount), true);
+        } catch (e) {
+            err.textContent = e.message;
+            confirm.disabled = false;
+            confirm.textContent = t("pay.cta");
+        }
+    });
+}
+
+// Construit le message du toast après un paiement, en expliquant la répartition
+// enveloppe / compte principal (modèle d'enveloppes budgétaires).
+function purchaseMessage(res, merchant, amount) {
+    const label = res.categoryLabel || catName(res.categoryKey);
+    let msg = `${t("pay.done")} · ${merchant} ${euro2(amount)} → ${label}`;
+    const env = res.fromEnvelope || 0, main = res.fromMain || 0;
+    if (res.categoryKey === "AUTRES") {
+        msg += ` · ${t("pay.others")}`;
+    } else if (env > 0 && main > 0) {
+        msg += ` (${euro2(env)} ${t("pay.fromEnv")} + ${euro2(main)} ${t("pay.fromMain")})`;
+    } else if (main > 0) {
+        msg += ` — ${t("pay.allMain")}`;
+    }
+    return msg;
+}
+
+// ---- Allouer de l'argent à une catégorie (POST /api/allocate) ----
+// Ce n'est PAS une dépense : l'argent quitte le compte courant pour remplir
+// l'enveloppe de la catégorie, qui limite ce qu'on pourra y dépenser.
 function openSendSheet() {
     if (!state.overview) return;
     const balance = state.overview.soldeCourant;
@@ -452,7 +550,7 @@ function openSendSheet() {
         <button class="cat-opt" data-key="${key}">
             <span class="cat-opt__ic" style="background:${hexA(c.color, .15)}">${c.icon}</span>
             <span class="cat-opt__name">${escapeHtml(catName(key))}</span>
-            <span class="cat-opt__spent">${euro(spentOf(key))}</span>
+            <span class="cat-opt__spent">${euro(availableOf(key))}</span>
         </button>`;
     }).join("");
 
@@ -493,7 +591,7 @@ function openSendSheet() {
         confirm.disabled = true;
         confirm.textContent = t("sheet.saving");
         try {
-            await apiPost("/api/transfer", { categoryKey: targetKey, amount });
+            await apiPost("/api/allocate", { categoryKey: targetKey, amount });
             await loadAccounts();
             closeSheet();
             toast(`${t("sheet.sent")} ${catName(targetKey)} · ${euro2(amount)}`, true);

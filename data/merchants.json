@@ -1,0 +1,10 @@
+[
+  {"name":"Uber Eats", "icon":"🍔", "categoryKey":"ALIMENTATION", "keywords":["uber eats","ubereats","mcdonald","mcdo","burger king","kfc","quick","takeaway","pizza","resto","restaurant"]},
+  {"name":"Deliveroo", "icon":"🛵", "categoryKey":"ALIMENTATION", "keywords":["deliveroo","takeaway.com","just eat"]},
+  {"name":"Carrefour", "icon":"🛒", "categoryKey":"ALIMENTATION", "keywords":["carrefour","colruyt","delhaize","aldi","lidl","courses","supermarche","proxy"]},
+  {"name":"Netflix", "icon":"📺", "categoryKey":"ABONNEMENTS", "keywords":["netflix","spotify","disney","amazon prime","youtube premium","abonnement"]},
+  {"name":"STIB", "icon":"🚌", "categoryKey":"TRANSPORT", "keywords":["stib","mivb","sncb","de lijn","tec","bolt","uber ride","taxi","train","metro","villo"]},
+  {"name":"Shell", "icon":"⛽", "categoryKey":"TRANSPORT", "keywords":["shell","total","esso","q8","texaco","essence","carburant","station"]},
+  {"name":"Pharmacie", "icon":"💊", "categoryKey":"SANTE", "keywords":["pharmacie","pharma","multipharma","medecin","docteur","hopital","dentiste"]},
+  {"name":"Steam", "icon":"🎮", "categoryKey":"LOISIRS", "keywords":["steam","playstation","xbox","nintendo","ugc","kinepolis","cinema","fnac","decathlon","concert","jeu"]}
+]

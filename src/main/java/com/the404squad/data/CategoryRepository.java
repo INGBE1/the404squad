@@ -86,15 +86,16 @@ public final class CategoryRepository {
     private void seedDefaults() throws IOException {
         Category.clear();
         Category.register(new Category("REVENU", "Revenu", "Income", "#3b82f6", "💰", Category.Kind.REVENU, 0));
-        Category.register(new Category("LOYER", "Loyer", "Rent", "#6366f1", "🏠", Category.Kind.DEPENSE, 520));
-        Category.register(new Category("ALIMENTATION", "Alimentation", "Groceries", "#f59e0b", "🛒", Category.Kind.DEPENSE, 250));
-        Category.register(new Category("TRANSPORT", "Transport", "Transport", "#06b6d4", "🚌", Category.Kind.DEPENSE, 60));
-        Category.register(new Category("ABONNEMENTS", "Abonnements", "Subscriptions", "#8b5cf6", "📺", Category.Kind.DEPENSE, 45));
-        Category.register(new Category("LOISIRS", "Loisirs", "Leisure", "#ec4899", "🎮", Category.Kind.DEPENSE, 120));
-        Category.register(new Category("SANTE", "Santé", "Health", "#ef4444", "➕", Category.Kind.DEPENSE, 40));
+        Category.register(new Category("LOYER", "Loyer", "Rent", "#6366f1", "🏠", Category.Kind.DEPENSE, 0));
+        Category.register(new Category("ALIMENTATION", "Alimentation", "Food", "#f59e0b", "🍔", Category.Kind.DEPENSE, 0));
+        Category.register(new Category("TRANSPORT", "Transport", "Transport", "#06b6d4", "🚌", Category.Kind.DEPENSE, 0));
+        Category.register(new Category("ABONNEMENTS", "Abonnements", "Subscriptions", "#8b5cf6", "📺", Category.Kind.DEPENSE, 0));
+        Category.register(new Category("LOISIRS", "Loisirs", "Leisure", "#ec4899", "🎮", Category.Kind.DEPENSE, 0));
+        Category.register(new Category("SANTE", "Santé", "Health", "#ef4444", "➕", Category.Kind.DEPENSE, 0));
         Category.register(new Category("EPARGNE", "Épargne", "Savings", "#22c55e", "🐷", Category.Kind.EPARGNE, 0));
         Category.register(new Category("INVESTISSEMENT", "Investissement", "Investment", "#14b8a6", "📈", Category.Kind.INVESTISSEMENT, 0));
         Category.register(new Category("CREDIT", "Crédit", "Credit", "#f97316", "💳", Category.Kind.CREDIT, 0));
+        Category.register(new Category("AUTRES", "Autres", "Others", "#94a3b8", "❓", Category.Kind.DEPENSE, 0));
         save();
     }
 }

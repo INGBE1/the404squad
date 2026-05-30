@@ -1,12 +1,13 @@
 [
   {"key":"REVENU", "labelFr":"Revenu", "labelEn":"Income", "color":"#3b82f6", "icon":"💰", "kind":"REVENU", "budget":0.00},
-  {"key":"LOYER", "labelFr":"Loyer", "labelEn":"Rent", "color":"#6366f1", "icon":"🏠", "kind":"DEPENSE", "budget":520.00},
-  {"key":"ALIMENTATION", "labelFr":"Alimentation", "labelEn":"Groceries", "color":"#f59e0b", "icon":"🛒", "kind":"DEPENSE", "budget":250.00},
-  {"key":"TRANSPORT", "labelFr":"Transport", "labelEn":"Transport", "color":"#06b6d4", "icon":"🚌", "kind":"DEPENSE", "budget":60.00},
-  {"key":"ABONNEMENTS", "labelFr":"Abonnements", "labelEn":"Subscriptions", "color":"#8b5cf6", "icon":"📺", "kind":"DEPENSE", "budget":45.00},
-  {"key":"LOISIRS", "labelFr":"Loisirs", "labelEn":"Leisure", "color":"#ec4899", "icon":"🎮", "kind":"DEPENSE", "budget":120.00},
-  {"key":"SANTE", "labelFr":"Santé", "labelEn":"Health", "color":"#ef4444", "icon":"➕", "kind":"DEPENSE", "budget":40.00},
+  {"key":"LOYER", "labelFr":"Loyer", "labelEn":"Rent", "color":"#6366f1", "icon":"🏠", "kind":"DEPENSE", "budget":0.00},
+  {"key":"ALIMENTATION", "labelFr":"Alimentation", "labelEn":"Food", "color":"#f59e0b", "icon":"🍔", "kind":"DEPENSE", "budget":0.00},
+  {"key":"TRANSPORT", "labelFr":"Transport", "labelEn":"Transport", "color":"#06b6d4", "icon":"🚌", "kind":"DEPENSE", "budget":0.00},
+  {"key":"ABONNEMENTS", "labelFr":"Abonnements", "labelEn":"Subscriptions", "color":"#8b5cf6", "icon":"📺", "kind":"DEPENSE", "budget":0.00},
+  {"key":"LOISIRS", "labelFr":"Loisirs", "labelEn":"Leisure", "color":"#ec4899", "icon":"🎮", "kind":"DEPENSE", "budget":0.00},
+  {"key":"SANTE", "labelFr":"Santé", "labelEn":"Health", "color":"#ef4444", "icon":"➕", "kind":"DEPENSE", "budget":0.00},
   {"key":"EPARGNE", "labelFr":"Épargne", "labelEn":"Savings", "color":"#22c55e", "icon":"🐷", "kind":"EPARGNE", "budget":0.00},
   {"key":"INVESTISSEMENT", "labelFr":"Investissement", "labelEn":"Investment", "color":"#14b8a6", "icon":"📈", "kind":"INVESTISSEMENT", "budget":0.00},
-  {"key":"CREDIT", "labelFr":"Crédit", "labelEn":"Credit", "color":"#f97316", "icon":"💳", "kind":"CREDIT", "budget":0.00}
+  {"key":"CREDIT", "labelFr":"Crédit", "labelEn":"Credit", "color":"#f97316", "icon":"💳", "kind":"CREDIT", "budget":0.00},
+  {"key":"AUTRES", "labelFr":"Autres", "labelEn":"Others", "color":"#94a3b8", "icon":"❓", "kind":"DEPENSE", "budget":0.00}
 ]

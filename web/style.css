@@ -213,9 +213,26 @@ body {
 .flow-lab { font-size: 11px; opacity: .75; display: block; }
 .flow strong { font-size: 15px; }
 
+/* Boutons d'action du slot principal */
+.slot-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; position: relative; }
+
+/* Bouton "Simuler un paiement" (action vedette) */
+.pay-btn {
+    position: relative; width: 100%; cursor: pointer;
+    border: none; font-family: var(--font); font-size: 15px; font-weight: 800;
+    color: #fff; background: linear-gradient(135deg, #ff7a1a, var(--ing)); border-radius: 14px; padding: 14px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+    box-shadow: 0 10px 22px rgba(255,98,0,.4); transition: transform .12s ease;
+}
+.pay-btn:active { transform: scale(.97); }
+.pay-btn__ic {
+    width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+    background: rgba(255,255,255,.22); font-size: 15px;
+}
+
 /* Bouton "Envoyer vers une catégorie" dans le slot principal */
 .send-btn {
-    position: relative; width: 100%; margin-top: 16px; cursor: pointer;
+    position: relative; width: 100%; cursor: pointer;
     border: none; font-family: var(--font); font-size: 15px; font-weight: 800;
     color: var(--navy); background: #fff; border-radius: 14px; padding: 14px;
     display: inline-flex; align-items: center; justify-content: center; gap: 9px;
@@ -424,6 +441,20 @@ body {
 .pick:active { transform: scale(.9); }
 .pick.is-sel { border-color: var(--ink); }
 .pick.swatch.is-sel { border-color: var(--ink); box-shadow: 0 0 0 2px #fff inset; }
+
+/* Marchands (simulation de paiement) */
+.merchant-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.merchant {
+    display: flex; align-items: center; gap: 9px; cursor: pointer; text-align: left;
+    border: 2px solid transparent; background: var(--bg); border-radius: 13px; padding: 10px 11px;
+    font-family: var(--font); font-size: 13.5px; font-weight: 700; color: var(--ink);
+    transition: transform .12s ease, border-color .15s ease, background .15s ease;
+}
+.merchant:active { transform: scale(.96); }
+.merchant.is-sel { border-color: var(--ing); background: var(--ing-soft); }
+.merchant__ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; font-size: 18px; background: #fff; flex: none; box-shadow: var(--shadow-sm); }
+.merchant__name { line-height: 1.1; }
+.sheet-hint { font-size: 12px; color: var(--muted); text-align: center; margin: 2px 0 14px; }
 
 .sheet .btn--cta {
     width: 100%; margin-top: 8px; border: none; cursor: pointer; font-family: var(--font);

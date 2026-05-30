@@ -134,6 +134,27 @@ public final class StatsService {
         return sb.append("]").toString();
     }
 
+    /** Catalogue de marchands (nom + icone + categorie cible) pour la simulation de paiement. */
+    public String merchantsJson() {
+        return db.merchants().toJson();
+    }
+
+    /** Solde disponible de chaque enveloppe (categorie allouable) : montant restant a depenser. */
+    public String envelopesJson() {
+        StringBuilder sb = new StringBuilder("[");
+        boolean first = true;
+        for (Category c : Category.values()) {
+            if (c.kind == Category.Kind.REVENU) continue;
+            if (!first) sb.append(",");
+            first = false;
+            sb.append("{")
+              .append("\"key\":").append(Json.str(c.name())).append(",")
+              .append("\"available\":").append(Json.num(db.available(c.name())))
+              .append("}");
+        }
+        return sb.append("]").toString();
+    }
+
     /** Repartition par categorie de DEPENSE pour un mois donne (camembert). */
     public String byCategoryJson(YearMonth month) {
         Map<Category, Double> map = new LinkedHashMap<>();

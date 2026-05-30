@@ -10,11 +10,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 /**
  * Store JSON : <strong>{@code data/bank.json} est la source de verite</strong>
@@ -31,10 +30,20 @@ public final class BankDatabase {
     private static final Path DATA_DIR = Path.of("data");
     private static final Path BANK_JSON = DATA_DIR.resolve("bank.json");
     private static final Path CATEGORIES_JSON = DATA_DIR.resolve("categories.json");
+    private static final Path MERCHANTS_JSON = DATA_DIR.resolve("merchants.json");
 
     private final CategoryRepository categoryRepo = new CategoryRepository(CATEGORIES_JSON);
+    private final MerchantRepository merchantRepo = new MerchantRepository(MERCHANTS_JSON);
     private final List<Transaction> transactions = new ArrayList<>();
-    private final Random rnd = new Random(404);
+
+    /**
+     * "Enveloppes" : solde disponible mis de cote par categorie. Modele de
+     * budget par enveloppe -> repartir de l'argent dans une categorie n'est PAS
+     * une depense, c'est deplacer de l'argent du compte courant vers l'enveloppe.
+     * Un achat se sert d'abord dans l'enveloppe ; le depassement retombe sur le
+     * compte courant.
+     */
+    private final Map<String, Double> envelopes = new LinkedHashMap<>();
 
     private Account profile;
     private double balance;
@@ -43,6 +52,7 @@ public final class BankDatabase {
     public BankDatabase() {
         try {
             categoryRepo.load();
+            merchantRepo.load();
             if (Files.exists(BANK_JSON)) {
                 loadBank();
             } else {
@@ -53,6 +63,16 @@ public final class BankDatabase {
         }
     }
 
+    /** Resultat d'une repartition : nouveau solde du compte + nouveau disponible de l'enveloppe. */
+    public record AllocationResult(double balance, double available) {}
+
+    /**
+     * Resultat d'un paiement simule : nouveau solde, categorie devinee, nouveau
+     * disponible de l'enveloppe, et la repartition du debit (part enveloppe / part compte).
+     */
+    public record PurchaseResult(double balance, String categoryKey, String categoryLabel,
+                                 double available, double fromEnvelope, double fromMain) {}
+
     // ------------------------------------------------------------------
     //  Accesseurs
     // ------------------------------------------------------------------
@@ -60,28 +80,72 @@ public final class BankDatabase {
     public List<Transaction> transactions() { return transactions; }
     public double balance() { return balance; }
     public CategoryRepository categories() { return categoryRepo; }
+    public MerchantRepository merchants() { return merchantRepo; }
+
+    /** Solde disponible dans l'enveloppe d'une categorie (0 par defaut). */
+    public double available(String categoryKey) {
+        return round(envelopes.getOrDefault(categoryKey, 0.0));
+    }
 
     // ------------------------------------------------------------------
     //  Mutations (persistees)
     // ------------------------------------------------------------------
 
-    /** Virement du compte courant vers une categorie : reduit le solde, ajoute une operation. */
-    public synchronized double transfer(String categoryKey, double amount, LocalDate date) throws IOException {
+    /**
+     * Repartit de l'argent du compte courant vers l'enveloppe d'une categorie.
+     * Ce n'est PAS une depense : l'argent quitte le compte courant pour
+     * alimenter l'enveloppe (la limite de depense de la categorie).
+     */
+    public synchronized AllocationResult allocate(String categoryKey, double amount) throws IOException {
         Category cat = Category.of(categoryKey);
         if (cat == null) throw new IllegalArgumentException("Categorie inconnue : " + categoryKey);
+        if (cat.kind == Category.Kind.REVENU) throw new IllegalArgumentException("Categorie non allouable");
         if (amount <= 0) throw new IllegalArgumentException("Montant invalide");
         if (amount > balance) throw new IllegalArgumentException("Solde insuffisant");
 
         balance = round(balance - amount);
-        String label = "Virement vers " + cat.label;
-        transactions.add(new Transaction(seq++, date, label, round(amount), cat));
+        double avail = round(available(categoryKey) + amount);
+        envelopes.put(categoryKey, avail);
         saveBank();
-        return balance;
+        return new AllocationResult(balance, avail);
     }
 
     /** Cree une categorie (delegue au depot) ; le catalogue JSON est persiste. */
     public synchronized Category addCategory(String name, String icon, String color, double budget) throws IOException {
         return categoryRepo.add(name, icon, color, budget);
+    }
+
+    /**
+     * Simule un paiement chez un marchand : l'app devine la categorie a partir
+     * du libelle (ex. "Uber Eats" -> Alimentation) ; si elle ne sait pas, le
+     * paiement tombe dans AUTRES.
+     *
+     * Le debit se sert d'abord dans l'enveloppe de la categorie ; si le montant
+     * depasse le disponible de l'enveloppe, le reste est preleve sur le compte
+     * courant. Echoue si enveloppe + compte ne couvrent pas la depense.
+     */
+    public synchronized PurchaseResult purchase(String merchant, double amount, LocalDate date) throws IOException {
+        if (merchant == null || merchant.isBlank()) throw new IllegalArgumentException("Marchand requis");
+        if (amount <= 0) throw new IllegalArgumentException("Montant invalide");
+
+        String key = merchantRepo.resolve(merchant);
+        Category cat = Category.of(key);
+        if (cat == null) cat = Category.of(MerchantRepository.FALLBACK);
+        if (cat == null) throw new IllegalArgumentException("Categorie AUTRES manquante dans le catalogue");
+        key = cat.name();
+
+        double envAvail = available(key);
+        if (amount > round(envAvail + balance)) throw new IllegalArgumentException("Solde insuffisant");
+
+        double fromEnvelope = Math.min(envAvail, amount);
+        double fromMain = round(amount - fromEnvelope);
+        envelopes.put(key, round(envAvail - fromEnvelope));
+        balance = round(balance - fromMain);
+
+        transactions.add(new Transaction(seq++, date, merchant.trim(), round(amount), cat));
+        saveBank();
+        return new PurchaseResult(balance, key, cat.label, available(key),
+                round(fromEnvelope), fromMain);
     }
 
     // ------------------------------------------------------------------
@@ -97,6 +161,17 @@ public final class BankDatabase {
                 JsonParser.asString(acc.get("city")),
                 JsonParser.asString(acc.get("iban")),
                 balance);
+
+        // Enveloppes (disponible par categorie) ; on ignore les categories disparues.
+        envelopes.clear();
+        Object env = root.get("envelopes");
+        if (env != null) {
+            for (Map.Entry<String, Object> e : JsonParser.asObject(env).entrySet()) {
+                if (Category.exists(e.getKey())) {
+                    envelopes.put(e.getKey(), round(JsonParser.asDouble(e.getValue())));
+                }
+            }
+        }
 
         int maxId = 0;
         for (Object o : JsonParser.asArray(root.get("transactions"))) {
@@ -124,7 +199,14 @@ public final class BankDatabase {
           .append("\"city\":").append(Json.str(profile.city())).append(", ")
           .append("\"iban\":").append(Json.str(profile.iban())).append(", ")
           .append("\"balance\":").append(Json.num(balance))
-          .append("},\n  \"transactions\": [\n");
+          .append("},\n  \"envelopes\": {");
+        boolean firstEnv = true;
+        for (Map.Entry<String, Double> e : envelopes.entrySet()) {
+            if (!firstEnv) sb.append(",");
+            firstEnv = false;
+            sb.append("\"").append(e.getKey()).append("\":").append(Json.num(e.getValue()));
+        }
+        sb.append("},\n  \"transactions\": [\n");
         for (int i = 0; i < transactions.size(); i++) {
             Transaction t = transactions.get(i);
             sb.append("    {")
@@ -141,105 +223,16 @@ public final class BankDatabase {
     }
 
     // ------------------------------------------------------------------
-    //  Graine de premier lancement (genere puis ecrit bank.json)
+    //  Graine de premier lancement (ecrit bank.json)
     // ------------------------------------------------------------------
     private void seedBank() throws IOException {
-        this.profile = new Account("Lina Moreau", 20, "Bruxelles (Ixelles)", "BE71 0961 2345 6769", 3000.00);
-        this.balance = 3000.00;
-        generate();
-        transactions.sort((a, b) -> a.date().compareTo(b.date()));
+        // Depart "propre" : un seul revenu (le salaire du mois courant) et aucune
+        // depense. Les categories se remplissent ensuite via la simulation de paiements.
+        this.profile = new Account("Lina Moreau", 20, "Bruxelles (Ixelles)", "BE71 0961 2345 6769", 2000.00);
+        this.balance = 2000.00;
+        LocalDate today = LocalDate.now();
+        transactions.add(new Transaction(seq++, today.withDayOfMonth(1), "Salaire", 2000.00, Category.of("REVENU")));
         saveBank();
-    }
-
-    private void add(LocalDate date, String label, double amount, Category cat) {
-        transactions.add(new Transaction(seq++, date, label, round(amount), cat));
-    }
-
-    private void generate() {
-        YearMonth start = YearMonth.of(2025, 1);
-        YearMonth end = YearMonth.of(2026, 5);
-        for (YearMonth ym = start; !ym.isAfter(end); ym = ym.plusMonths(1)) {
-            generateMonth(ym);
-        }
-    }
-
-    private void generateMonth(YearMonth ym) {
-        // -------- REVENUS --------
-        add(day(ym, 2), "Virement parents - soutien mensuel", 400, Category.of("REVENU"));
-        double salaire = switch (ym.getMonthValue()) {
-            case 1, 6, 7, 8 -> 620 + rnd.nextInt(120);
-            case 5, 12 -> 280 + rnd.nextInt(80);
-            default -> 430 + rnd.nextInt(140);
-        };
-        add(day(ym, 27), "Salaire job etudiant - Delhaize Flagey", salaire, Category.of("REVENU"));
-        if (ym.getMonthValue() == 1 || ym.getMonthValue() == 4 || ym.getMonthValue() == 10) {
-            add(day(ym, 15), "Bourse d'etudes - Federation Wallonie-Bruxelles", 750, Category.of("REVENU"));
-        }
-
-        // -------- LOYER --------
-        add(day(ym, 3), "Loyer kot - Rue de la Paix, Ixelles", 575, Category.of("LOYER"));
-        add(day(ym, 3), "Charges (eau / elec / internet)", 95, Category.of("LOYER"));
-
-        // -------- EPARGNE & INVESTISSEMENT --------
-        add(day(ym, 5), "Virement vers compte epargne", 100, Category.of("EPARGNE"));
-        add(day(ym, 5), "Achat ETF MSCI World - Trade Republic", 50, Category.of("INVESTISSEMENT"));
-
-        // -------- CREDIT --------
-        add(day(ym, 8), "Remboursement credit - PC portable (Krefel)", 75, Category.of("CREDIT"));
-
-        // -------- ABONNEMENTS --------
-        add(day(ym, 1), "Basic-Fit abonnement salle", 24.99, Category.of("ABONNEMENTS"));
-        add(day(ym, 6), "Spotify Premium Etudiant", 6.49, Category.of("ABONNEMENTS"));
-        add(day(ym, 10), "Netflix (partage famille)", 5.99, Category.of("ABONNEMENTS"));
-        add(day(ym, 15), "Proximus - forfait mobile", 15.00, Category.of("ABONNEMENTS"));
-
-        // -------- ALIMENTATION --------
-        String[] courses = {"Colruyt Ixelles", "Delhaize Flagey", "Lidl Matonge",
-                "Carrefour Express", "Aldi Saint-Gilles", "Proxy Delhaize"};
-        int nbCourses = 6 + rnd.nextInt(3);
-        for (int i = 0; i < nbCourses; i++) {
-            int d = 2 + rnd.nextInt(26);
-            add(day(ym, d), courses[rnd.nextInt(courses.length)], 18 + rnd.nextDouble() * 32, Category.of("ALIMENTATION"));
-        }
-        String[] snacks = {"Maison Antoine - frites", "Exki", "Panos sandwich", "Starbucks ULB"};
-        int nbSnacks = 3 + rnd.nextInt(3);
-        for (int i = 0; i < nbSnacks; i++) {
-            int d = 2 + rnd.nextInt(26);
-            add(day(ym, d), snacks[rnd.nextInt(snacks.length)], 4 + rnd.nextDouble() * 8, Category.of("ALIMENTATION"));
-        }
-
-        // -------- TRANSPORT --------
-        add(day(ym, 4), "STIB - abonnement MOBIB etudiant", 12.00, Category.of("TRANSPORT"));
-        if (rnd.nextInt(2) == 0) {
-            add(day(ym, 9 + rnd.nextInt(15)), "SNCB - Bruxelles <-> Namur (week-end)", 11.40, Category.of("TRANSPORT"));
-        }
-        if (rnd.nextInt(3) == 0) {
-            add(day(ym, 9 + rnd.nextInt(15)), "Villo! location velo", 3.50, Category.of("TRANSPORT"));
-        }
-
-        // -------- LOISIRS --------
-        String[] loisirs = {"Cafe Belga - Flagey", "UGC De Brouckere - cinema", "Delirium Cafe",
-                "Concert Botanique", "Steam - jeu video", "Bar Le Coq",
-                "Resto - Le Pain Quotidien", "Decathlon"};
-        int nbLoisirs = 4 + rnd.nextInt(4);
-        for (int i = 0; i < nbLoisirs; i++) {
-            int d = 2 + rnd.nextInt(26);
-            add(day(ym, d), loisirs[rnd.nextInt(loisirs.length)], 9 + rnd.nextDouble() * 36, Category.of("LOISIRS"));
-        }
-
-        // -------- SANTE --------
-        if (rnd.nextInt(2) == 0) {
-            add(day(ym, 12 + rnd.nextInt(10)), "Pharmacie Multipharma", 8 + rnd.nextDouble() * 22, Category.of("SANTE"));
-        }
-
-        // -------- Imprevus --------
-        if (ym.getMonthValue() == 9) add(day(ym, 14), "Syllabus & materiel de cours", 145, Category.of("LOISIRS"));
-        if (ym.getMonthValue() == 12) add(day(ym, 18), "Cadeaux de Noel", 90, Category.of("LOISIRS"));
-        if (ym.getMonthValue() == 7) add(day(ym, 20), "Festival Couleur Cafe - ticket", 79, Category.of("LOISIRS"));
-    }
-
-    private static LocalDate day(YearMonth ym, int d) {
-        return ym.atDay(Math.min(d, ym.lengthOfMonth()));
     }
 
     private static double round(double v) {

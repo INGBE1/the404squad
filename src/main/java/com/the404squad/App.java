@@ -99,6 +99,8 @@ public final class App {
                 case "/api/budgets"      -> stats.budgetsJson(month, budgetOverrides(q));
                 case "/api/projection"   -> stats.projectionJson(today, years);
                 case "/api/categories"   -> stats.categoriesJson();
+                case "/api/merchants"    -> stats.merchantsJson();
+                case "/api/envelopes"    -> stats.envelopesJson();
                 default -> null;
             };
 
@@ -122,11 +124,13 @@ public final class App {
                     JsonParser.parse(new String(ex.getRequestBody().readAllBytes(), StandardCharsets.UTF_8)));
 
             switch (path) {
-                case "/api/transfer" -> {
+                case "/api/allocate" -> {
                     String key = JsonParser.asString(body.get("categoryKey"));
                     double amount = JsonParser.asDouble(body.get("amount"));
-                    double balance = db.transfer(key, amount, java.time.LocalDate.now());
-                    send(ex, 200, "application/json", "{\"ok\":true,\"balance\":" + Json.num(balance) + "}");
+                    var r = db.allocate(key, amount);
+                    send(ex, 200, "application/json",
+                            "{\"ok\":true,\"balance\":" + Json.num(r.balance())
+                            + ",\"available\":" + Json.num(r.available()) + "}");
                 }
                 case "/api/category" -> {
                     String name = JsonParser.asString(body.get("name"));
@@ -139,6 +143,18 @@ public final class App {
                     }
                     var cat = db.addCategory(name.trim(), icon, color, budget);
                     send(ex, 200, "application/json", com.the404squad.data.CategoryRepository.toJson(cat));
+                }
+                case "/api/purchase" -> {
+                    String merchant = JsonParser.asString(body.get("merchant"));
+                    double amount = JsonParser.asDouble(body.get("amount"));
+                    var r = db.purchase(merchant, amount, java.time.LocalDate.now());
+                    send(ex, 200, "application/json",
+                            "{\"ok\":true,\"balance\":" + Json.num(r.balance())
+                            + ",\"categoryKey\":" + Json.str(r.categoryKey())
+                            + ",\"categoryLabel\":" + Json.str(r.categoryLabel())
+                            + ",\"available\":" + Json.num(r.available())
+                            + ",\"fromEnvelope\":" + Json.num(r.fromEnvelope())
+                            + ",\"fromMain\":" + Json.num(r.fromMain()) + "}");
                 }
                 default -> send(ex, 404, "application/json", "{\"error\":\"not found\"}");
             }
